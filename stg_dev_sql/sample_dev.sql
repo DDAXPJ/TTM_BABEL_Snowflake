@@ -7,7 +7,7 @@
  USE SCHEMA TTM_BABEL.BABEL_STG_PROD;
 {% else %}
 -- その他の場合の処理
- SELECT 1/0;  -- 0で割ることでエラーを発生させる
+ {% do raise_error("DEVかPRODを指定してください") %}
 {% endif %}
 
 
