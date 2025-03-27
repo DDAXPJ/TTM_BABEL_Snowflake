@@ -20,8 +20,8 @@ data_map = table_name_df.set_index('LOG_TYPE').to_dict(orient='index')
 # デフォルトの変数名
 default_label = "default_table"
 integration = "dblog_dev_int"
-source_table_name = "TTM_BABEL.BABEL_STG_DEV.DBLOG"
-task_schedule = '60 MINUTE'
+source_table_name = "DBLOG"
+task_schedule = '24 HOUR'
 
 from datetime import datetime, date
 
@@ -398,7 +398,7 @@ suffix = datetime.now().strftime("%Y%m%d%H%M%S")
 
 # クエリ結果を出力\
 # テーブル作成クエリ
-with open(f'./stg_create_tbl_sql/dev_staging_table.sql', "a") as file:
+with open(f'./dev_staging_table.sql', "a") as file:
     file.write(
 """
 {% if env == "DEV" %}
@@ -409,7 +409,7 @@ with open(f'./stg_create_tbl_sql/dev_staging_table.sql', "a") as file:
 　USE SCHEMA TTM_BABEL.BABEL_STG_PROD;
 {% else %}
 -- その他の場合の処理
-    {{ raise_error("DEVかPRODを指定してください") }}
+　USE SCHEMA TTM_BABEL.BABEL_STG_DEV;
 {% endif %}
 """
     )
@@ -419,7 +419,21 @@ with open(f'./stg_create_tbl_sql/dev_staging_table.sql', "a") as file:
         file.write(f"-- Query for LOG_TYPE = {LOG_TYPE}\n{query}\n")
 
 # タスククエリ
-with open(f'./stg_create_task_sql/dev_task.sql', "a") as file:
+with open(f'./dev_task.sql', "a") as file:
+    file.write(
+"""
+{% if env == "DEV" %}
+-- DEVの場合の処理
+　USE SCHEMA TTM_BABEL.BABEL_STG_DEV;
+{% elif env == "PROD" %}
+-- PRODの場合の処理
+　USE SCHEMA TTM_BABEL.BABEL_STG_PROD;
+{% else %}
+-- その他の場合の処理
+　USE SCHEMA TTM_BABEL.BABEL_STG_DEV;
+{% endif %}
+"""
+    )
     queries = gen_task_queries(group_keys)
     for LOG_TYPE, query in queries:
         # print(f"-- Query for LOG_TYPE = {LOG_TYPE}\n{query}\n")
