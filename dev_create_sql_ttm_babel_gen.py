@@ -403,13 +403,13 @@ with open(f'./dev_staging_table.sql', "a") as file:
 """
 {% if env == "DEV" %}
 -- DEVの場合の処理
-　USE SCHEMA TTM_BABEL.BABEL_STG_DEV;
+USE SCHEMA TTM_BABEL.BABEL_STG_DEV;
 {% elif env == "PROD" %}
 -- PRODの場合の処理
-　USE SCHEMA TTM_BABEL.BABEL_STG_PROD;
+USE SCHEMA TTM_BABEL.BABEL_STG_PROD;
 {% else %}
 -- その他の場合の処理
-　USE SCHEMA TTM_BABEL.BABEL_STG_DEV;
+USE SCHEMA TTM_BABEL.BABEL_STG_DEV;
 {% endif %}
 """
     )
@@ -424,13 +424,13 @@ with open(f'./dev_task.sql', "a") as file:
 """
 {% if env == "DEV" %}
 -- DEVの場合の処理
-　USE SCHEMA TTM_BABEL.BABEL_STG_DEV;
+USE SCHEMA TTM_BABEL.BABEL_STG_DEV;
 {% elif env == "PROD" %}
 -- PRODの場合の処理
-　USE SCHEMA TTM_BABEL.BABEL_STG_PROD;
+USE SCHEMA TTM_BABEL.BABEL_STG_PROD;
 {% else %}
 -- その他の場合の処理
-　USE SCHEMA TTM_BABEL.BABEL_STG_DEV;
+USE SCHEMA TTM_BABEL.BABEL_STG_DEV;
 {% endif %}
 """
     )
