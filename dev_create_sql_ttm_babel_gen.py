@@ -195,17 +195,17 @@ def gen_create_queries(group_keys):
                         child_key_type = child_key_type[child_key_type.find('<')+1:child_key_type.find('>')]
                     if child_key_type in inverse_type_mapping:
                         insert_fields.append(f'{field} {child_key_type} NULL')
-                        select_fields.append(f'{array_field}.value:"{child_field}"::{child_key_type} AS {field}')
+                        select_fields.append(f'{array_field}.value:{child_field}::{child_key_type} AS {field}')
                     else:
                         insert_fields.append(f'{field} VARIANT NULL')
-                        select_fields.append(f'{array_field}.value:"{child_field}" AS {field}')                        
+                        select_fields.append(f'{array_field}.value:{child_field} AS {field}')                        
                 elif "ARRAY" in key_type and not has_single_array:
                     array_field = get_array_field(key, key_type)
                     if array_field in multi_array_fields:
                         continue
                     multi_array_fields[array_field] = array_field
                     insert_fields.append(f'{array_field} VARIANT NULL')
-                    select_fields.append(f'PARSE_JSON(LOG):"{array_field}" AS {array_field}')
+                    select_fields.append(f'PARSE_JSON(LOG):{array_field} AS {array_field}')
                 else:
                     # その他の型の場合はそのままVARIANTとする
                     insert_fields.append(f'{field} VARIANT  NULL')
@@ -279,7 +279,7 @@ def gen_task_queries(group_keys):
                 # insert_fields, select_fieldsのセット
                 if key_type != "VARIANT" and key_type in inverse_type_mapping:
                     # key_typeが拡張していないsnowflakeに存在する型の場合castする
-                    select_fields.append(f'CAST(PARSE_JSON(LOG):"{key}" AS {key_type}) AS {field}')
+                    select_fields.append(f'CAST(PARSE_JSON(LOG):{key} AS {key_type}) AS {field}')
                 elif "ARRAY" in key_type and has_single_array:
                     # 配列が1つのときのみ対応する
                     array_field = get_array_field(key, key_type)
@@ -288,18 +288,18 @@ def gen_task_queries(group_keys):
                     if "ARRAY" in child_key_type:
                         child_key_type = child_key_type[child_key_type.find('<')+1:child_key_type.find('>')]
                     if child_key_type in inverse_type_mapping:
-                        select_fields.append(f'{array_field}.value:"{child_field}"::{child_key_type} AS {field}')
+                        select_fields.append(f'{array_field}.value:{child_field}::{child_key_type} AS {field}')
                     else:
-                        select_fields.append(f'{array_field}.value:"{child_field}" AS {field}')                        
+                        select_fields.append(f'{array_field}.value:{child_field} AS {field}')                        
                 elif "ARRAY" in key_type and not has_single_array:
                     array_field = get_array_field(key, key_type)
                     if array_field in multi_array_fields:
                         continue
                     multi_array_fields[array_field] = array_field
-                    select_fields.append(f'PARSE_JSON(LOG):"{array_field}" AS {array_field}')
+                    select_fields.append(f'PARSE_JSON(LOG):{array_field} AS {array_field}')
                 else:
                     # その他の型の場合はそのまま
-                    select_fields.append(f'PARSE_JSON(LOG):"{key}" AS {field}')
+                    select_fields.append(f'PARSE_JSON(LOG):{key} AS {field}')
                     select_fields.append(f'-- {key}: {key_type} --')
 
             stream_name = table_name + '_STERAM'
