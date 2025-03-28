@@ -16,8 +16,7 @@ CREATE OR REPLACE TABLE LOG_AVATAR_GET(
     LOGs_userId STRING NULL,
     user_id STRING NULL,
     avatar_id NUMBER NULL,
-    created_at NUMBER NULL,
-    user_avatar_id NUMBER NULL
+    created_at NUMBER NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -27,8 +26,7 @@ SELECT DISTINCT
     user_id as LOGs_userId,
     CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
     CAST(PARSE_JSON(LOG):"avatar_id" AS NUMBER) AS avatar_id,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"user_avatar_id" AS NUMBER) AS user_avatar_id
+    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
 FROM DBLOG
 WHERE LOG_TYPE = 'avatar:get'
 ;
@@ -44,8 +42,7 @@ CREATE OR REPLACE TABLE LOG_AVATAR_USE(
     user_id STRING NULL,
     avatar_id NUMBER NULL,
     use_count NUMBER NULL,
-    created_at NUMBER NULL,
-    user_avatar_id NUMBER NULL
+    created_at NUMBER NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -56,110 +53,9 @@ SELECT DISTINCT
     CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
     CAST(PARSE_JSON(LOG):"avatar_id" AS NUMBER) AS avatar_id,
     CAST(PARSE_JSON(LOG):"use_count" AS NUMBER) AS use_count,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"user_avatar_id" AS NUMBER) AS user_avatar_id
-FROM DBLOG
-WHERE LOG_TYPE = 'avatar:use'
-;
-
--- Query for LOG_TYPE = coupon:create
-
-CREATE OR REPLACE TABLE LOG_COUPON_CREATE(
-    id INT NOT NULL,
-    idx INT NOT NULL,
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    coupon_id NUMBER NULL,
-    coupon_code STRING NULL,
-    coupon_effect_type NUMBER NULL,
-    coupon_effect_amount NUMBER NULL,
-    code_type NUMBER NULL,
-    created_at NUMBER NULL,
-    coupon_group_id NUMBER NULL
-) AS
-SELECT DISTINCT
-    id,
-    coupon.index AS idx,
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    coupon.value:"id"::NUMBER AS coupon_id,
-    coupon.value:"code"::STRING AS coupon_code,
-    coupon.value:"effect_type"::NUMBER AS coupon_effect_type,
-    coupon.value:"effect_amount"::NUMBER AS coupon_effect_amount,
-    CAST(PARSE_JSON(LOG):"code_type" AS NUMBER) AS code_type,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"coupon_group_id" AS NUMBER) AS coupon_group_id
-FROM DBLOG,
-    LATERAL FLATTEN(input => PARSE_JSON(LOG):"coupon") coupon
-WHERE LOG_TYPE = 'coupon:create'
-;
-
--- Query for LOG_TYPE = coupon:use
-
-CREATE OR REPLACE TABLE LOG_COUPON_USE(
-    id INT NOT NULL,
-    
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    coupon_id NUMBER NULL,
-    coupon_code STRING NULL,
-    coupon_effect_type NUMBER NULL,
-    coupon_effect_amount NUMBER NULL,
-    user_id STRING NULL,
-    code_type NUMBER NULL,
-    created_at NUMBER NULL,
-    user_coupon_id NUMBER NULL,
-    coupon_group_id NUMBER NULL
-) AS
-SELECT DISTINCT
-    id,
-    
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    CAST(PARSE_JSON(LOG):"coupon.id" AS NUMBER) AS coupon_id,
-    CAST(PARSE_JSON(LOG):"coupon.code" AS STRING) AS coupon_code,
-    CAST(PARSE_JSON(LOG):"coupon.effect_type" AS NUMBER) AS coupon_effect_type,
-    CAST(PARSE_JSON(LOG):"coupon.effect_amount" AS NUMBER) AS coupon_effect_amount,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"code_type" AS NUMBER) AS code_type,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"user_coupon_id" AS NUMBER) AS user_coupon_id,
-    CAST(PARSE_JSON(LOG):"coupon_group_id" AS NUMBER) AS coupon_group_id
-FROM DBLOG
-WHERE LOG_TYPE = 'coupon:use'
-;
-
--- Query for LOG_TYPE = currency:deposit
-
-CREATE OR REPLACE TABLE LOG_CURRENCY_DEPOSIT(
-    id INT NOT NULL,
-    
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    user_id STRING NULL,
-    currency_amount NUMBER NULL,
-    currency_total_amount NUMBER NULL,
-    currency_before_amount NUMBER NULL,
-    created_at NUMBER NULL
-) AS
-SELECT DISTINCT
-    id,
-    
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"currency.amount" AS NUMBER) AS currency_amount,
-    CAST(PARSE_JSON(LOG):"currency.total_amount" AS NUMBER) AS currency_total_amount,
-    CAST(PARSE_JSON(LOG):"currency.before_amount" AS NUMBER) AS currency_before_amount,
     CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
 FROM DBLOG
-WHERE LOG_TYPE = 'currency:deposit'
+WHERE LOG_TYPE = 'avatar:use'
 ;
 
 -- Query for LOG_TYPE = currency:paid
@@ -203,10 +99,7 @@ CREATE OR REPLACE TABLE LOG_CURRENCY_FREE_DEPOSIT(
     currency_amount NUMBER NULL,
     currency_total_amount NUMBER NULL,
     currency_before_amount NUMBER NULL,
-    created_at NUMBER NULL,
-    currency_free_amount NUMBER NULL,
-    currency_free_total_amount NUMBER NULL,
-    currency_free_before_amount NUMBER NULL
+    created_at NUMBER NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -218,10 +111,7 @@ SELECT DISTINCT
     CAST(PARSE_JSON(LOG):"currency.amount" AS NUMBER) AS currency_amount,
     CAST(PARSE_JSON(LOG):"currency.total_amount" AS NUMBER) AS currency_total_amount,
     CAST(PARSE_JSON(LOG):"currency.before_amount" AS NUMBER) AS currency_before_amount,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"currency_free.amount" AS NUMBER) AS currency_free_amount,
-    CAST(PARSE_JSON(LOG):"currency_free.total_amount" AS NUMBER) AS currency_free_total_amount,
-    CAST(PARSE_JSON(LOG):"currency_free.before_amount" AS NUMBER) AS currency_free_before_amount
+    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
 FROM DBLOG
 WHERE LOG_TYPE = 'currency_free:deposit'
 ;
@@ -238,10 +128,7 @@ CREATE OR REPLACE TABLE LOG_CURRENCY_FREE_PAID(
     currency_amount NUMBER NULL,
     currency_total_amount NUMBER NULL,
     currency_before_amount NUMBER NULL,
-    created_at NUMBER NULL,
-    currency_free_amount NUMBER NULL,
-    currency_free_total_amount NUMBER NULL,
-    currency_free_before_amount NUMBER NULL
+    created_at NUMBER NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -253,10 +140,7 @@ SELECT DISTINCT
     CAST(PARSE_JSON(LOG):"currency.amount" AS NUMBER) AS currency_amount,
     CAST(PARSE_JSON(LOG):"currency.total_amount" AS NUMBER) AS currency_total_amount,
     CAST(PARSE_JSON(LOG):"currency.before_amount" AS NUMBER) AS currency_before_amount,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"currency_free.amount" AS NUMBER) AS currency_free_amount,
-    CAST(PARSE_JSON(LOG):"currency_free.total_amount" AS NUMBER) AS currency_free_total_amount,
-    CAST(PARSE_JSON(LOG):"currency_free.before_amount" AS NUMBER) AS currency_free_before_amount
+    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
 FROM DBLOG
 WHERE LOG_TYPE = 'currency_free:paid'
 ;
@@ -331,10 +215,7 @@ CREATE OR REPLACE TABLE LOG_GACHA_DRAW(
     user_id STRING NULL,
     draw_num NUMBER NULL,
     gacha_id NUMBER NULL,
-    created_at NUMBER NULL,
-    items_id NUMBER NULL,
-    items_amount NUMBER NULL,
-    items_item_type STRING NULL
+    created_at NUMBER NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -347,10 +228,7 @@ SELECT DISTINCT
     CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
     CAST(PARSE_JSON(LOG):"draw_num" AS NUMBER) AS draw_num,
     CAST(PARSE_JSON(LOG):"gacha_id" AS NUMBER) AS gacha_id,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    items.value:"id"::NUMBER AS items_id,
-    items.value:"amount"::NUMBER AS items_amount,
-    items.value:"item_type"::STRING AS items_item_type
+    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
 FROM DBLOG,
     LATERAL FLATTEN(input => PARSE_JSON(LOG):"items") items
 WHERE LOG_TYPE = 'gacha:draw'
@@ -406,142 +284,6 @@ FROM DBLOG
 WHERE LOG_TYPE = 'gold:sub'
 ;
 
--- Query for LOG_TYPE = inbox:get
-
-CREATE OR REPLACE TABLE LOG_INBOX_GET(
-    id INT NOT NULL,
-    idx INT NOT NULL,
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    items_id NUMBER NULL,
-    items_amount NUMBER NULL,
-    items_item_id STRING NULL,
-    items_item_type STRING NULL,
-    is_read BOOLEAN NULL,
-    read_at NUMBER NULL,
-    user_id STRING NULL,
-    expire_at NUMBER NULL,
-    created_at NUMBER NULL,
-    message_id NUMBER NULL,
-    user_message_id NUMBER NULL
-) AS
-SELECT DISTINCT
-    id,
-    items.index AS idx,
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    items.value:"id"::NUMBER AS items_id,
-    items.value:"amount"::NUMBER AS items_amount,
-    items.value:"item_id"::STRING AS items_item_id,
-    items.value:"item_type"::STRING AS items_item_type,
-    CAST(PARSE_JSON(LOG):"is_read" AS BOOLEAN) AS is_read,
-    CAST(PARSE_JSON(LOG):"read_at" AS NUMBER) AS read_at,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"expire_at" AS NUMBER) AS expire_at,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"message_id" AS NUMBER) AS message_id,
-    CAST(PARSE_JSON(LOG):"user_message_id" AS NUMBER) AS user_message_id
-FROM DBLOG,
-    LATERAL FLATTEN(input => PARSE_JSON(LOG):"items") items
-WHERE LOG_TYPE = 'inbox:get'
-;
-
--- Query for LOG_TYPE = item:get
-
-CREATE OR REPLACE TABLE LOG_ITEM_GET(
-    id INT NOT NULL,
-    idx INT NOT NULL,
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    items_id NUMBER NULL,
-    items_amount NUMBER NULL,
-    items_item_id STRING NULL,
-    items_item_type STRING NULL,
-    user_id STRING NULL,
-    created_at NUMBER NULL
-) AS
-SELECT DISTINCT
-    id,
-    items.index AS idx,
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    items.value:"id"::NUMBER AS items_id,
-    items.value:"amount"::NUMBER AS items_amount,
-    items.value:"item_id"::STRING AS items_item_id,
-    items.value:"item_type"::STRING AS items_item_type,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
-FROM DBLOG,
-    LATERAL FLATTEN(input => PARSE_JSON(LOG):"items") items
-WHERE LOG_TYPE = 'item:get'
-;
-
--- Query for LOG_TYPE = item:select
-
-CREATE OR REPLACE TABLE LOG_ITEM_SELECT(
-    id INT NOT NULL,
-    idx INT NOT NULL,
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    items_id NUMBER NULL,
-    items_item_id STRING NULL,
-    items_item_type STRING NULL,
-    user_id STRING NULL,
-    created_at NUMBER NULL
-) AS
-SELECT DISTINCT
-    id,
-    items.index AS idx,
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    items.value:"id"::NUMBER AS items_id,
-    items.value:"item_id"::STRING AS items_item_id,
-    items.value:"item_type"::STRING AS items_item_type,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
-FROM DBLOG,
-    LATERAL FLATTEN(input => PARSE_JSON(LOG):"items") items
-WHERE LOG_TYPE = 'item:select'
-;
-
--- Query for LOG_TYPE = item:use
-
-CREATE OR REPLACE TABLE LOG_ITEM_USE(
-    id INT NOT NULL,
-    idx INT NOT NULL,
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    items_id NUMBER NULL,
-    items_amount NUMBER NULL,
-    items_item_id STRING NULL,
-    items_item_type STRING NULL,
-    user_id STRING NULL,
-    created_at NUMBER NULL
-) AS
-SELECT DISTINCT
-    id,
-    items.index AS idx,
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    items.value:"id"::NUMBER AS items_id,
-    items.value:"amount"::NUMBER AS items_amount,
-    items.value:"item_id"::STRING AS items_item_id,
-    items.value:"item_type"::STRING AS items_item_type,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
-FROM DBLOG,
-    LATERAL FLATTEN(input => PARSE_JSON(LOG):"items") items
-WHERE LOG_TYPE = 'item:use'
-;
-
 -- Query for LOG_TYPE = ofp:playResults
 
 CREATE OR REPLACE TABLE OFP_PLAYRESULTS(
@@ -586,9 +328,10 @@ CREATE OR REPLACE TABLE OFP_PLAYRESULTS(
     totalExtraGold NUMBER NULL,
     numberOfPlayers NUMBER NULL,
     totalPlayerLevel NUMBER NULL,
+    ofpState_fieldLevel NUMBER NULL,
     ofpState_uses VARIANT NULL,
     ofpState_result_A NUMBER NULL,
-    ofpState_result_B NUMBER NULL,
+    ofpState_result_B FLOAT NULL,
     ofpState_result_C NUMBER NULL,
     ofpState_result_D NUMBER NULL,
     ofpState_result_E NUMBER NULL,
@@ -599,7 +342,6 @@ CREATE OR REPLACE TABLE OFP_PLAYRESULTS(
     ofpState_result_playerResults VARIANT NULL,
     ofpState_result_reachedWaveAchievementRate NUMBER NULL,
     ofpState_players VARIANT NULL,
-    ofpState_fieldLevel NUMBER NULL,
     ofpState_dataVersion STRING NULL,
     fieldId STRING NULL,
     onpInfo_fieldLevel NUMBER NULL,
@@ -651,9 +393,10 @@ SELECT DISTINCT
     CAST(PARSE_JSON(LOG):"totalExtraGold" AS NUMBER) AS totalExtraGold,
     CAST(PARSE_JSON(LOG):"numberOfPlayers" AS NUMBER) AS numberOfPlayers,
     CAST(PARSE_JSON(LOG):"totalPlayerLevel" AS NUMBER) AS totalPlayerLevel,
+    CAST(PARSE_JSON(LOG):"ofpState.fieldLevel" AS NUMBER) AS ofpState_fieldLevel,
     PARSE_JSON(LOG):"ofpState_uses" AS ofpState_uses,
     CAST(PARSE_JSON(LOG):"ofpState.result.A" AS NUMBER) AS ofpState_result_A,
-    CAST(PARSE_JSON(LOG):"ofpState.result.B" AS NUMBER) AS ofpState_result_B,
+    CAST(PARSE_JSON(LOG):"ofpState.result.B" AS FLOAT) AS ofpState_result_B,
     CAST(PARSE_JSON(LOG):"ofpState.result.C" AS NUMBER) AS ofpState_result_C,
     CAST(PARSE_JSON(LOG):"ofpState.result.D" AS NUMBER) AS ofpState_result_D,
     CAST(PARSE_JSON(LOG):"ofpState.result.E" AS NUMBER) AS ofpState_result_E,
@@ -664,7 +407,6 @@ SELECT DISTINCT
     PARSE_JSON(LOG):"ofpState_result_playerResults" AS ofpState_result_playerResults,
     CAST(PARSE_JSON(LOG):"ofpState.result.reachedWaveAchievementRate" AS NUMBER) AS ofpState_result_reachedWaveAchievementRate,
     PARSE_JSON(LOG):"ofpState_players" AS ofpState_players,
-    CAST(PARSE_JSON(LOG):"ofpState.fieldLevel" AS NUMBER) AS ofpState_fieldLevel,
     CAST(PARSE_JSON(LOG):"ofpState.dataVersion" AS STRING) AS ofpState_dataVersion,
     CAST(PARSE_JSON(LOG):"fieldId" AS STRING) AS fieldId,
     CAST(PARSE_JSON(LOG):"onpInfo.fieldLevel" AS NUMBER) AS onpInfo_fieldLevel,
@@ -699,31 +441,6 @@ SELECT DISTINCT
     CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
 FROM DBLOG
 WHERE LOG_TYPE = 'party:create'
-;
-
--- Query for LOG_TYPE = party:delete
-
-CREATE OR REPLACE TABLE LOG_PARTY_DELETE(
-    id INT NOT NULL,
-    
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    user_id STRING NULL,
-    party_id STRING NULL,
-    deleted_at NUMBER NULL
-) AS
-SELECT DISTINCT
-    id,
-    
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"party_id" AS STRING) AS party_id,
-    CAST(PARSE_JSON(LOG):"deleted_at" AS NUMBER) AS deleted_at
-FROM DBLOG
-WHERE LOG_TYPE = 'party:delete'
 ;
 
 -- Query for LOG_TYPE = party:name_create
@@ -769,9 +486,7 @@ CREATE OR REPLACE TABLE LOG_PARTY_NAME_EDIT(
     party_name STRING NULL,
     before_name STRING NULL,
     party_tts_name STRING NULL,
-    before_tts_name STRING NULL,
-    before_party_name STRING NULL,
-    before_party_tts_name STRING NULL
+    before_tts_name STRING NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -785,9 +500,7 @@ SELECT DISTINCT
     CAST(PARSE_JSON(LOG):"party_name" AS STRING) AS party_name,
     CAST(PARSE_JSON(LOG):"before_name" AS STRING) AS before_name,
     CAST(PARSE_JSON(LOG):"party_tts_name" AS STRING) AS party_tts_name,
-    CAST(PARSE_JSON(LOG):"before_tts_name" AS STRING) AS before_tts_name,
-    CAST(PARSE_JSON(LOG):"before_party_name" AS STRING) AS before_party_name,
-    CAST(PARSE_JSON(LOG):"before_party_tts_name" AS STRING) AS before_party_tts_name
+    CAST(PARSE_JSON(LOG):"before_tts_name" AS STRING) AS before_tts_name
 FROM DBLOG
 WHERE LOG_TYPE = 'party:name_edit'
 ;
@@ -819,72 +532,6 @@ FROM DBLOG
 WHERE LOG_TYPE = 'party:select'
 ;
 
--- Query for LOG_TYPE = payment:purchase
-
-CREATE OR REPLACE TABLE LOG_PAYMENT_PURCHASE(
-    id INT NOT NULL,
-    idx INT NOT NULL,
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    paid_cash_amount NUMBER NULL,
-    paid_topolo_amount NUMBER NULL,
-    paid_topolo_total_amount NUMBER NULL,
-    paid_topolo_before_amount NUMBER NULL,
-    paid_coupon_info_coupon_id NUMBER NULL,
-    paid_coupon_info_coupon_code STRING NULL,
-    paid_coupon_info_coupon_effect_type NUMBER NULL,
-    paid_coupon_info_coupon_effect_amount NUMBER NULL,
-    paid_coupon_info_code_type NUMBER NULL,
-    paid_coupon_info_user_coupon_id STRING NULL,
-    paid_coupon_info_coupon_group_id NUMBER NULL,
-    paid_topolo_free_amount NUMBER NULL,
-    paid_topolo_free_total_amount NUMBER NULL,
-    paid_topolo_free_before_amount NUMBER NULL,
-    user_id STRING NULL,
-    acquired_id NUMBER NULL,
-    acquired_num NUMBER NULL,
-    acquired_item_id STRING NULL,
-    acquired_item_type STRING NULL,
-    acquired_user_related_id STRING NULL,
-    created_at NUMBER NULL,
-    gacha_draw_num NUMBER NULL,
-    gacha_gacha_id NUMBER NULL
-) AS
-SELECT DISTINCT
-    id,
-    acquired.index AS idx,
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    CAST(PARSE_JSON(LOG):"paid.cash.amount" AS NUMBER) AS paid_cash_amount,
-    CAST(PARSE_JSON(LOG):"paid.topolo.amount" AS NUMBER) AS paid_topolo_amount,
-    CAST(PARSE_JSON(LOG):"paid.topolo.total_amount" AS NUMBER) AS paid_topolo_total_amount,
-    CAST(PARSE_JSON(LOG):"paid.topolo.before_amount" AS NUMBER) AS paid_topolo_before_amount,
-    CAST(PARSE_JSON(LOG):"paid.coupon_info.coupon.id" AS NUMBER) AS paid_coupon_info_coupon_id,
-    CAST(PARSE_JSON(LOG):"paid.coupon_info.coupon.code" AS STRING) AS paid_coupon_info_coupon_code,
-    CAST(PARSE_JSON(LOG):"paid.coupon_info.coupon.effect_type" AS NUMBER) AS paid_coupon_info_coupon_effect_type,
-    CAST(PARSE_JSON(LOG):"paid.coupon_info.coupon.effect_amount" AS NUMBER) AS paid_coupon_info_coupon_effect_amount,
-    CAST(PARSE_JSON(LOG):"paid.coupon_info.code_type" AS NUMBER) AS paid_coupon_info_code_type,
-    CAST(PARSE_JSON(LOG):"paid.coupon_info.user_coupon_id" AS STRING) AS paid_coupon_info_user_coupon_id,
-    CAST(PARSE_JSON(LOG):"paid.coupon_info.coupon_group_id" AS NUMBER) AS paid_coupon_info_coupon_group_id,
-    CAST(PARSE_JSON(LOG):"paid.topolo_free.amount" AS NUMBER) AS paid_topolo_free_amount,
-    CAST(PARSE_JSON(LOG):"paid.topolo_free.total_amount" AS NUMBER) AS paid_topolo_free_total_amount,
-    CAST(PARSE_JSON(LOG):"paid.topolo_free.before_amount" AS NUMBER) AS paid_topolo_free_before_amount,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    acquired.value:"id"::NUMBER AS acquired_id,
-    acquired.value:"num"::NUMBER AS acquired_num,
-    acquired.value:"item_id"::STRING AS acquired_item_id,
-    acquired.value:"item_type"::STRING AS acquired_item_type,
-    acquired.value:"user_related_id"::STRING AS acquired_user_related_id,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"gacha.draw_num" AS NUMBER) AS gacha_draw_num,
-    CAST(PARSE_JSON(LOG):"gacha.gacha_id" AS NUMBER) AS gacha_gacha_id
-FROM DBLOG,
-    LATERAL FLATTEN(input => PARSE_JSON(LOG):"acquired") acquired
-WHERE LOG_TYPE = 'payment:purchase'
-;
-
 -- Query for LOG_TYPE = payment:q5_pay
 
 CREATE OR REPLACE TABLE LOG_PAYMENT_Q5_PAY(
@@ -908,185 +555,6 @@ SELECT DISTINCT
     CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
 FROM DBLOG
 WHERE LOG_TYPE = 'payment:q5_pay'
-;
-
--- Query for LOG_TYPE = payment:stripe_paymentIntent
-
-CREATE OR REPLACE TABLE LOG_PAYMENT_STRIPE_PAYMENTINTENT(
-    id INT NOT NULL,
-    idx INT NOT NULL,
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    type STRING NULL,
-    status STRING NULL,
-    user_id STRING NULL,
-    response_amount NUMBER NULL,
-    response_object STRING NULL,
-    response_status STRING NULL,
-    response_currency STRING NULL,
-    response_metadata_uid STRING NULL,
-    response_payment_method_types STRING NULL,
-    created_at NUMBER NULL,
-    payment_id STRING NULL
-) AS
-SELECT DISTINCT
-    id,
-    response_payment_method_types.index AS idx,
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    CAST(PARSE_JSON(LOG):"type" AS STRING) AS type,
-    CAST(PARSE_JSON(LOG):"status" AS STRING) AS status,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"response.amount" AS NUMBER) AS response_amount,
-    CAST(PARSE_JSON(LOG):"response.object" AS STRING) AS response_object,
-    CAST(PARSE_JSON(LOG):"response.status" AS STRING) AS response_status,
-    CAST(PARSE_JSON(LOG):"response.currency" AS STRING) AS response_currency,
-    CAST(PARSE_JSON(LOG):"response.metadata.uid" AS STRING) AS response_metadata_uid,
-    response_payment_method_types.value:"payment_method_types"::STRING AS response_payment_method_types,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"payment_id" AS STRING) AS payment_id
-FROM DBLOG,
-    LATERAL FLATTEN(input => PARSE_JSON(LOG):"response.payment_method_types") response_payment_method_types
-WHERE LOG_TYPE = 'payment:stripe_paymentIntent'
-;
-
--- Query for LOG_TYPE = ranked_party:create
-
-CREATE OR REPLACE TABLE LOG_RANKED_PARTY_CREATE(
-    id INT NOT NULL,
-    
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    user_id STRING NULL,
-    created_at NUMBER NULL,
-    ranked_party_id STRING NULL
-) AS
-SELECT DISTINCT
-    id,
-    
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"ranked_party_id" AS STRING) AS ranked_party_id
-FROM DBLOG
-WHERE LOG_TYPE = 'ranked_party:create'
-;
-
--- Query for LOG_TYPE = ranked_party:delete
-
-CREATE OR REPLACE TABLE LOG_RANKED_PARTY_DELETE(
-    id INT NOT NULL,
-    
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    user_id STRING NULL,
-    deleted_at NUMBER NULL,
-    ranked_party_id STRING NULL
-) AS
-SELECT DISTINCT
-    id,
-    
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"deleted_at" AS NUMBER) AS deleted_at,
-    CAST(PARSE_JSON(LOG):"ranked_party_id" AS STRING) AS ranked_party_id
-FROM DBLOG
-WHERE LOG_TYPE = 'ranked_party:delete'
-;
-
--- Query for LOG_TYPE = ranked_party:profile_edit
-
-CREATE OR REPLACE TABLE LOG_RANKED_PARTY_PROFILE_EDIT(
-    id INT NOT NULL,
-    
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    message STRING NULL,
-    user_id STRING NULL,
-    modified_at NUMBER NULL,
-    youtube_url STRING NULL,
-    ranked_party_id STRING NULL
-) AS
-SELECT DISTINCT
-    id,
-    
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    CAST(PARSE_JSON(LOG):"message" AS STRING) AS message,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"modified_at" AS NUMBER) AS modified_at,
-    CAST(PARSE_JSON(LOG):"youtube_url" AS STRING) AS youtube_url,
-    CAST(PARSE_JSON(LOG):"ranked_party_id" AS STRING) AS ranked_party_id
-FROM DBLOG
-WHERE LOG_TYPE = 'ranked_party:profile_edit'
-;
-
--- Query for LOG_TYPE = reservation:create
-
-CREATE OR REPLACE TABLE LOG_RESERVATION_CREATE(
-    id INT NOT NULL,
-    
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    persons NUMBER NULL,
-    user_id STRING NULL,
-    created_at NUMBER NULL,
-    reservation_id NUMBER NULL,
-    reservation_date DATE NULL,
-    reservation_time STRING NULL,
-    reservation_type NUMBER NULL
-) AS
-SELECT DISTINCT
-    id,
-    
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    CAST(PARSE_JSON(LOG):"persons" AS NUMBER) AS persons,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"reservation_id" AS NUMBER) AS reservation_id,
-    CAST(PARSE_JSON(LOG):"reservation_date" AS DATE) AS reservation_date,
-    CAST(PARSE_JSON(LOG):"reservation_time" AS STRING) AS reservation_time,
-    CAST(PARSE_JSON(LOG):"reservation_type" AS NUMBER) AS reservation_type
-FROM DBLOG
-WHERE LOG_TYPE = 'reservation:create'
-;
-
--- Query for LOG_TYPE = reservation:use
-
-CREATE OR REPLACE TABLE LOG_RESERVATION_USE(
-    id INT NOT NULL,
-    
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    user_id STRING NULL,
-    created_at NUMBER NULL,
-    reservation_id NUMBER NULL
-) AS
-SELECT DISTINCT
-    id,
-    
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"reservation_id" AS NUMBER) AS reservation_id
-FROM DBLOG
-WHERE LOG_TYPE = 'reservation:use'
 ;
 
 -- Query for LOG_TYPE = session:checkin
@@ -1177,7 +645,7 @@ CREATE OR REPLACE TABLE LOG_SESSION_CREATE(
     request_party_onpInfo_partyCategory NUMBER NULL,
     request_party_onpInfo_hasNextSession BOOLEAN NULL,
     request_party_ttsName STRING NULL,
-    request_party_rankedPartyId STRING NULL,
+    request_party_rankedPartyId VARIANT  NULL,
     request_gameId STRING NULL,
     request_fieldId STRING NULL,
     request_players VARIANT NULL,
@@ -1185,16 +653,7 @@ CREATE OR REPLACE TABLE LOG_SESSION_CREATE(
     request_players_onpInfo_avatarParams VARIANT NULL,
     request_version STRING NULL,
     request_isReserved BOOLEAN NULL,
-    created_at NUMBER NULL,
-    request_party_onpInfo_requestId STRING NULL,
-    request_sourceSessionId NUMBER NULL,
-    user_id STRING NULL,
-    response_data_players VARIANT NULL,
-    response_data_sessionId NUMBER NULL,
-    response_data_entryNumber NUMBER NULL,
-    response_meta_status NUMBER NULL,
-    terminal_id NUMBER NULL,
-    user_reservation_id NUMBER NULL
+    created_at NUMBER NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -1216,7 +675,8 @@ SELECT DISTINCT
     CAST(PARSE_JSON(LOG):"request.party.onpInfo.partyCategory" AS NUMBER) AS request_party_onpInfo_partyCategory,
     CAST(PARSE_JSON(LOG):"request.party.onpInfo.hasNextSession" AS BOOLEAN) AS request_party_onpInfo_hasNextSession,
     CAST(PARSE_JSON(LOG):"request.party.ttsName" AS STRING) AS request_party_ttsName,
-    CAST(PARSE_JSON(LOG):"request.party.rankedPartyId" AS STRING) AS request_party_rankedPartyId,
+    PARSE_JSON(LOG):"request.party.rankedPartyId" AS request_party_rankedPartyId,
+    -- request.party.rankedPartyId: __EMPTY__ --,
     CAST(PARSE_JSON(LOG):"request.gameId" AS STRING) AS request_gameId,
     CAST(PARSE_JSON(LOG):"request.fieldId" AS STRING) AS request_fieldId,
     PARSE_JSON(LOG):"request_players" AS request_players,
@@ -1224,16 +684,7 @@ SELECT DISTINCT
     PARSE_JSON(LOG):"request_players_onpInfo_avatarParams" AS request_players_onpInfo_avatarParams,
     CAST(PARSE_JSON(LOG):"request.version" AS STRING) AS request_version,
     CAST(PARSE_JSON(LOG):"request.isReserved" AS BOOLEAN) AS request_isReserved,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"request.party.onpInfo.requestId" AS STRING) AS request_party_onpInfo_requestId,
-    CAST(PARSE_JSON(LOG):"request.sourceSessionId" AS NUMBER) AS request_sourceSessionId,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    PARSE_JSON(LOG):"response_data_players" AS response_data_players,
-    CAST(PARSE_JSON(LOG):"response.data.sessionId" AS NUMBER) AS response_data_sessionId,
-    CAST(PARSE_JSON(LOG):"response.data.entryNumber" AS NUMBER) AS response_data_entryNumber,
-    CAST(PARSE_JSON(LOG):"response.meta.status" AS NUMBER) AS response_meta_status,
-    CAST(PARSE_JSON(LOG):"terminal_id" AS NUMBER) AS terminal_id,
-    CAST(PARSE_JSON(LOG):"user_reservation_id" AS NUMBER) AS user_reservation_id
+    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
 FROM DBLOG
 WHERE LOG_TYPE = 'session:create'
 ;
@@ -1273,9 +724,7 @@ CREATE OR REPLACE TABLE LOG_SESSION_END(
     response_createdAt NUMBER NULL,
     response_sessionId NUMBER NULL,
     response_entryNumber NUMBER NULL,
-    created_at NUMBER NULL,
-    response_party_onpInfo_fieldLevel NUMBER NULL,
-    response_raeson STRING NULL
+    created_at NUMBER NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -1310,9 +759,7 @@ SELECT DISTINCT
     CAST(PARSE_JSON(LOG):"response.createdAt" AS NUMBER) AS response_createdAt,
     CAST(PARSE_JSON(LOG):"response.sessionId" AS NUMBER) AS response_sessionId,
     CAST(PARSE_JSON(LOG):"response.entryNumber" AS NUMBER) AS response_entryNumber,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"response.party.onpInfo.fieldLevel" AS NUMBER) AS response_party_onpInfo_fieldLevel,
-    CAST(PARSE_JSON(LOG):"response.raeson" AS STRING) AS response_raeson
+    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
 FROM DBLOG
 WHERE LOG_TYPE = 'session:end'
 ;
@@ -1339,8 +786,7 @@ CREATE OR REPLACE TABLE LOG_SESSION_ENTRY(
     response_sessionId NUMBER NULL,
     response_entryNumber NUMBER NULL,
     response_partyTtsName STRING NULL,
-    created_at NUMBER NULL,
-    response_partName STRING NULL
+    created_at NUMBER NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -1362,8 +808,7 @@ SELECT DISTINCT
     CAST(PARSE_JSON(LOG):"response.sessionId" AS NUMBER) AS response_sessionId,
     CAST(PARSE_JSON(LOG):"response.entryNumber" AS NUMBER) AS response_entryNumber,
     CAST(PARSE_JSON(LOG):"response.partyTtsName" AS STRING) AS response_partyTtsName,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"response.partName" AS STRING) AS response_partName
+    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
 FROM DBLOG,
     LATERAL FLATTEN(input => PARSE_JSON(LOG):"response.players") response_players
 WHERE LOG_TYPE = 'session:entry'
@@ -1378,6 +823,7 @@ CREATE OR REPLACE TABLE LOG_SESSION_EXIT(
     created TIMESTAMP NULL,
     LOGs_userId STRING NULL,
     response_type STRING NULL,
+    response_reason STRING NULL,
     response_result_items_used VARIANT NULL,
     response_result_items_acquired VARIANT NULL,
     response_result_party_onpInfo_language NUMBER NULL,
@@ -1404,8 +850,7 @@ CREATE OR REPLACE TABLE LOG_SESSION_EXIT(
     response_createdAt NUMBER NULL,
     response_sessionId NUMBER NULL,
     response_entryNumber NUMBER NULL,
-    created_at NUMBER NULL,
-    response_reason STRING NULL
+    created_at NUMBER NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -1414,6 +859,7 @@ SELECT DISTINCT
     created,
     user_id as LOGs_userId,
     CAST(PARSE_JSON(LOG):"response.type" AS STRING) AS response_type,
+    CAST(PARSE_JSON(LOG):"response.reason" AS STRING) AS response_reason,
     PARSE_JSON(LOG):"response_result_items_used" AS response_result_items_used,
     PARSE_JSON(LOG):"response_result_items_acquired" AS response_result_items_acquired,
     CAST(PARSE_JSON(LOG):"response.result.party.onpInfo.language" AS NUMBER) AS response_result_party_onpInfo_language,
@@ -1440,8 +886,7 @@ SELECT DISTINCT
     CAST(PARSE_JSON(LOG):"response.createdAt" AS NUMBER) AS response_createdAt,
     CAST(PARSE_JSON(LOG):"response.sessionId" AS NUMBER) AS response_sessionId,
     CAST(PARSE_JSON(LOG):"response.entryNumber" AS NUMBER) AS response_entryNumber,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"response.reason" AS STRING) AS response_reason
+    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
 FROM DBLOG
 WHERE LOG_TYPE = 'session:exit'
 ;
@@ -1463,8 +908,7 @@ CREATE OR REPLACE TABLE LOG_SESSION_START(
     created_at NUMBER NULL,
     response_reason STRING NULL,
     response_sourceSessionId NUMBER NULL,
-    response_originalSessionId NUMBER NULL,
-    response_raeson STRING NULL
+    response_originalSessionId NUMBER NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -1481,8 +925,7 @@ SELECT DISTINCT
     CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
     CAST(PARSE_JSON(LOG):"response.reason" AS STRING) AS response_reason,
     CAST(PARSE_JSON(LOG):"response.sourceSessionId" AS NUMBER) AS response_sourceSessionId,
-    CAST(PARSE_JSON(LOG):"response.originalSessionId" AS NUMBER) AS response_originalSessionId,
-    CAST(PARSE_JSON(LOG):"response.raeson" AS STRING) AS response_raeson
+    CAST(PARSE_JSON(LOG):"response.originalSessionId" AS NUMBER) AS response_originalSessionId
 FROM DBLOG
 WHERE LOG_TYPE = 'session:start'
 ;
@@ -1571,12 +1014,8 @@ CREATE OR REPLACE TABLE LOG_SMAREGI_POS_TRANSACTIONS_TEMPORARIES_CREATE(
     coupon_id NUMBER NULL,
     created_at NUMBER NULL,
     party_code STRING NULL,
-    user_coupon_id NUMBER NULL,
-    coupon_group_id NUMBER NULL,
-    request_memo_party_id STRING NULL,
-    request_memo_party_code STRING NULL,
-    request_memo_party_name STRING NULL,
-    request_memo_entryNumber NUMBER NULL
+    user_coupon_id STRING NULL,
+    coupon_group_id NUMBER NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -1673,50 +1112,10 @@ SELECT DISTINCT
     CAST(PARSE_JSON(LOG):"coupon_id" AS NUMBER) AS coupon_id,
     CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
     CAST(PARSE_JSON(LOG):"party_code" AS STRING) AS party_code,
-    CAST(PARSE_JSON(LOG):"user_coupon_id" AS NUMBER) AS user_coupon_id,
-    CAST(PARSE_JSON(LOG):"coupon_group_id" AS NUMBER) AS coupon_group_id,
-    CAST(PARSE_JSON(LOG):"request.memo.party_id" AS STRING) AS request_memo_party_id,
-    CAST(PARSE_JSON(LOG):"request.memo.party_code" AS STRING) AS request_memo_party_code,
-    CAST(PARSE_JSON(LOG):"request.memo.party_name" AS STRING) AS request_memo_party_name,
-    CAST(PARSE_JSON(LOG):"request.memo.entryNumber" AS NUMBER) AS request_memo_entryNumber
+    CAST(PARSE_JSON(LOG):"user_coupon_id" AS STRING) AS user_coupon_id,
+    CAST(PARSE_JSON(LOG):"coupon_group_id" AS NUMBER) AS coupon_group_id
 FROM DBLOG
 WHERE LOG_TYPE = 'smaregi:pos_transactions_temporaries_create'
-;
-
--- Query for LOG_TYPE = smaregi:webhook_pos_adjustments
-
-CREATE OR REPLACE TABLE LOG_SMAREGI_WEBHOOK_POS_ADJUSTMENTS(
-    id INT NOT NULL,
-    idx INT NOT NULL,
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    response_ids_storeId STRING NULL,
-    response_ids_terminalId STRING NULL,
-    response_ids_adjustmentDateTime STRING NULL,
-    response_event STRING NULL,
-    response_action STRING NULL,
-    response_contractId STRING NULL,
-    response_cashAdjustment BOOLEAN NULL,
-    created_at NUMBER NULL
-) AS
-SELECT DISTINCT
-    id,
-    response_ids.index AS idx,
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    response_ids.value:"storeId"::STRING AS response_ids_storeId,
-    response_ids.value:"terminalId"::STRING AS response_ids_terminalId,
-    response_ids.value:"adjustmentDateTime"::STRING AS response_ids_adjustmentDateTime,
-    CAST(PARSE_JSON(LOG):"response.event" AS STRING) AS response_event,
-    CAST(PARSE_JSON(LOG):"response.action" AS STRING) AS response_action,
-    CAST(PARSE_JSON(LOG):"response.contractId" AS STRING) AS response_contractId,
-    CAST(PARSE_JSON(LOG):"response.cashAdjustment" AS BOOLEAN) AS response_cashAdjustment,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
-FROM DBLOG,
-    LATERAL FLATTEN(input => PARSE_JSON(LOG):"response.ids") response_ids
-WHERE LOG_TYPE = 'smaregi:webhook_pos_adjustments'
 ;
 
 -- Query for LOG_TYPE = spirit:get
@@ -1729,8 +1128,7 @@ CREATE OR REPLACE TABLE LOG_SPIRIT_GET(
     LOGs_userId STRING NULL,
     user_id STRING NULL,
     spirit_id NUMBER NULL,
-    created_at NUMBER NULL,
-    user_spirit_id NUMBER NULL
+    created_at NUMBER NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -1740,8 +1138,7 @@ SELECT DISTINCT
     user_id as LOGs_userId,
     CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
     CAST(PARSE_JSON(LOG):"spirit_id" AS NUMBER) AS spirit_id,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"user_spirit_id" AS NUMBER) AS user_spirit_id
+    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
 FROM DBLOG
 WHERE LOG_TYPE = 'spirit:get'
 ;
@@ -1757,8 +1154,7 @@ CREATE OR REPLACE TABLE LOG_SPIRIT_USE(
     user_id STRING NULL,
     spirit_id NUMBER NULL,
     use_count NUMBER NULL,
-    created_at NUMBER NULL,
-    user_spirit_id NUMBER NULL
+    created_at NUMBER NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -1769,8 +1165,7 @@ SELECT DISTINCT
     CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
     CAST(PARSE_JSON(LOG):"spirit_id" AS NUMBER) AS spirit_id,
     CAST(PARSE_JSON(LOG):"use_count" AS NUMBER) AS use_count,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"user_spirit_id" AS NUMBER) AS user_spirit_id
+    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
 FROM DBLOG
 WHERE LOG_TYPE = 'spirit:use'
 ;
@@ -1825,52 +1220,6 @@ FROM DBLOG
 WHERE LOG_TYPE = 'user:adult_child_select'
 ;
 
--- Query for LOG_TYPE = user:ban
-
-CREATE OR REPLACE TABLE LOG_USER_BAN(
-    id INT NOT NULL,
-    
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    user_id STRING NULL,
-    modified_at NUMBER NULL
-) AS
-SELECT DISTINCT
-    id,
-    
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"modified_at" AS NUMBER) AS modified_at
-FROM DBLOG
-WHERE LOG_TYPE = 'user:ban'
-;
-
--- Query for LOG_TYPE = user:ban_cancel
-
-CREATE OR REPLACE TABLE LOG_USER_BAN_CANCEL(
-    id INT NOT NULL,
-    
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    user_id STRING NULL,
-    modified_at NUMBER NULL
-) AS
-SELECT DISTINCT
-    id,
-    
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"modified_at" AS NUMBER) AS modified_at
-FROM DBLOG
-WHERE LOG_TYPE = 'user:ban_cancel'
-;
-
 -- Query for LOG_TYPE = user:create
 
 CREATE OR REPLACE TABLE LOG_USER_CREATE(
@@ -1880,8 +1229,7 @@ CREATE OR REPLACE TABLE LOG_USER_CREATE(
     created TIMESTAMP NULL,
     LOGs_userId STRING NULL,
     user_id STRING NULL,
-    created_at NUMBER NULL,
-    auth_code STRING NULL
+    created_at NUMBER NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -1890,8 +1238,7 @@ SELECT DISTINCT
     created,
     user_id as LOGs_userId,
     CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"auth_code" AS STRING) AS auth_code
+    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
 FROM DBLOG
 WHERE LOG_TYPE = 'user:create'
 ;
@@ -1905,7 +1252,6 @@ CREATE OR REPLACE TABLE LOG_USER_DELETE(
     created TIMESTAMP NULL,
     LOGs_userId STRING NULL,
     user_id STRING NULL,
-    auth_code STRING NULL,
     deleted_at NUMBER NULL
 ) AS
 SELECT DISTINCT
@@ -1915,7 +1261,6 @@ SELECT DISTINCT
     created,
     user_id as LOGs_userId,
     CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"auth_code" AS STRING) AS auth_code,
     CAST(PARSE_JSON(LOG):"deleted_at" AS NUMBER) AS deleted_at
 FROM DBLOG
 WHERE LOG_TYPE = 'user:delete'
@@ -1931,8 +1276,7 @@ CREATE OR REPLACE TABLE LOG_USER_FLAG(
     LOGs_userId STRING NULL,
     flag NUMBER NULL,
     user_id STRING NULL,
-    created_at NUMBER NULL,
-    user_flag NUMBER NULL
+    created_at NUMBER NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -1942,42 +1286,9 @@ SELECT DISTINCT
     user_id as LOGs_userId,
     CAST(PARSE_JSON(LOG):"flag" AS NUMBER) AS flag,
     CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"user_flag" AS NUMBER) AS user_flag
+    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
 FROM DBLOG
 WHERE LOG_TYPE = 'user:flag'
-;
-
--- Query for LOG_TYPE = user:item
-
-CREATE OR REPLACE TABLE LOG_USER_ITEM(
-    id INT NOT NULL,
-    idx INT NOT NULL,
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    items_id NUMBER NULL,
-    items_amount NUMBER NULL,
-    items_item_id STRING NULL,
-    items_item_type STRING NULL,
-    user_id STRING NULL,
-    created_at NUMBER NULL
-) AS
-SELECT DISTINCT
-    id,
-    items.index AS idx,
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    items.value:"id"::NUMBER AS items_id,
-    items.value:"amount"::NUMBER AS items_amount,
-    items.value:"item_id"::STRING AS items_item_id,
-    items.value:"item_type"::STRING AS items_item_type,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
-FROM DBLOG,
-    LATERAL FLATTEN(input => PARSE_JSON(LOG):"items") items
-WHERE LOG_TYPE = 'user:item'
 ;
 
 -- Query for LOG_TYPE = user:language_select
@@ -1988,10 +1299,10 @@ CREATE OR REPLACE TABLE LOG_USER_LANGUAGE_SELECT(
     request_id STRING NULL,
     created TIMESTAMP NULL,
     LOGs_userId STRING NULL,
+    flag NUMBER NULL,
     user_id STRING NULL,
-    language NUMBER NULL,
     created_at NUMBER NULL,
-    flag NUMBER NULL
+    language NUMBER NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -1999,10 +1310,10 @@ SELECT DISTINCT
     request_id,
     created,
     user_id as LOGs_userId,
+    CAST(PARSE_JSON(LOG):"flag" AS NUMBER) AS flag,
     CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"language" AS NUMBER) AS language,
     CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"flag" AS NUMBER) AS flag
+    CAST(PARSE_JSON(LOG):"language" AS NUMBER) AS language
 FROM DBLOG
 WHERE LOG_TYPE = 'user:language_select'
 ;
@@ -2016,8 +1327,7 @@ CREATE OR REPLACE TABLE LOG_USER_LOGIN(
     created TIMESTAMP NULL,
     LOGs_userId STRING NULL,
     user_id STRING NULL,
-    created_at NUMBER NULL,
-    auth_code STRING NULL
+    created_at NUMBER NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -2026,8 +1336,7 @@ SELECT DISTINCT
     created,
     user_id as LOGs_userId,
     CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"auth_code" AS STRING) AS auth_code
+    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
 FROM DBLOG
 WHERE LOG_TYPE = 'user:login'
 ;
@@ -2042,9 +1351,7 @@ CREATE OR REPLACE TABLE LOG_USER_LOGIN_FIRST(
     LOGs_userId STRING NULL,
     created_at NUMBER NULL,
     continue_day NUMBER NULL,
-    day_since_last NUMBER NULL,
-    user_id STRING NULL,
-    auth_code STRING NULL
+    day_since_last NUMBER NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -2054,36 +1361,9 @@ SELECT DISTINCT
     user_id as LOGs_userId,
     CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
     CAST(PARSE_JSON(LOG):"continue_day" AS NUMBER) AS continue_day,
-    CAST(PARSE_JSON(LOG):"day_since_last" AS NUMBER) AS day_since_last,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"auth_code" AS STRING) AS auth_code
+    CAST(PARSE_JSON(LOG):"day_since_last" AS NUMBER) AS day_since_last
 FROM DBLOG
 WHERE LOG_TYPE = 'user:login_first'
-;
-
--- Query for LOG_TYPE = user:logout
-
-CREATE OR REPLACE TABLE LOG_USER_LOGOUT(
-    id INT NOT NULL,
-    
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    user_id STRING NULL,
-    auth_code STRING NULL,
-    created_at NUMBER NULL
-) AS
-SELECT DISTINCT
-    id,
-    
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"auth_code" AS STRING) AS auth_code,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
-FROM DBLOG
-WHERE LOG_TYPE = 'user:logout'
 ;
 
 -- Query for LOG_TYPE = user:name_create
@@ -2096,8 +1376,7 @@ CREATE OR REPLACE TABLE LOG_USER_NAME_CREATE(
     LOGs_userId STRING NULL,
     name STRING NULL,
     user_id STRING NULL,
-    created_at NUMBER NULL,
-    tts_name STRING NULL
+    created_at NUMBER NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -2107,8 +1386,7 @@ SELECT DISTINCT
     user_id as LOGs_userId,
     CAST(PARSE_JSON(LOG):"name" AS STRING) AS name,
     CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"tts_name" AS STRING) AS tts_name
+    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at
 FROM DBLOG
 WHERE LOG_TYPE = 'user:name_create'
 ;
@@ -2156,10 +1434,8 @@ CREATE OR REPLACE TABLE LOG_USER_PROFILE_EDIT(
     name STRING NULL,
     message STRING NULL,
     user_id STRING NULL,
-    tts_name STRING NULL,
     modified_at NUMBER NULL,
-    party_name STRING NULL,
-    party_tts_name STRING NULL
+    tts_name STRING NULL
 ) AS
 SELECT DISTINCT
     id,
@@ -2171,86 +1447,9 @@ SELECT DISTINCT
     CAST(PARSE_JSON(LOG):"name" AS STRING) AS name,
     CAST(PARSE_JSON(LOG):"message" AS STRING) AS message,
     CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"tts_name" AS STRING) AS tts_name,
     CAST(PARSE_JSON(LOG):"modified_at" AS NUMBER) AS modified_at,
-    CAST(PARSE_JSON(LOG):"party_name" AS STRING) AS party_name,
-    CAST(PARSE_JSON(LOG):"party_tts_name" AS STRING) AS party_tts_name
+    CAST(PARSE_JSON(LOG):"tts_name" AS STRING) AS tts_name
 FROM DBLOG
 WHERE LOG_TYPE = 'user:profile_edit'
-;
-
--- Query for LOG_TYPE = user:score
-
-CREATE OR REPLACE TABLE LOG_USER_SCORE(
-    id INT NOT NULL,
-    
-    request_id STRING NULL,
-    created TIMESTAMP NULL,
-    LOGs_userId STRING NULL,
-    level NUMBER NULL,
-    user_id STRING NULL,
-    total_exp NUMBER NULL,
-    created_at NUMBER NULL,
-    total_gold NUMBER NULL,
-    q1_play_num NUMBER NULL,
-    q4_play_num NUMBER NULL,
-    total_score NUMBER NULL,
-    fq1_play_num NUMBER NULL,
-    fq2_play_num NUMBER NULL,
-    q2_a_play_num NUMBER NULL,
-    q2_b_play_num NUMBER NULL,
-    q2_c_play_num NUMBER NULL,
-    q3_a_play_num NUMBER NULL,
-    q3_b_play_num NUMBER NULL,
-    q3_c_play_num NUMBER NULL,
-    q3_d_play_num NUMBER NULL,
-    q3_e_play_num NUMBER NULL,
-    q3_f_play_num NUMBER NULL,
-    q3_g_play_num NUMBER NULL,
-    q3_h_play_num NUMBER NULL,
-    q3_i_play_num NUMBER NULL,
-    q5_a_play_num NUMBER NULL,
-    q5_b_play_num NUMBER NULL,
-    fq1_reached_num NUMBER NULL,
-    fq2_reached_num NUMBER NULL,
-    q5_a_reached_num NUMBER NULL,
-    q5_b_reached_num NUMBER NULL
-) AS
-SELECT DISTINCT
-    id,
-    
-    request_id,
-    created,
-    user_id as LOGs_userId,
-    CAST(PARSE_JSON(LOG):"level" AS NUMBER) AS level,
-    CAST(PARSE_JSON(LOG):"user_id" AS STRING) AS user_id,
-    CAST(PARSE_JSON(LOG):"total_exp" AS NUMBER) AS total_exp,
-    CAST(PARSE_JSON(LOG):"created_at" AS NUMBER) AS created_at,
-    CAST(PARSE_JSON(LOG):"total_gold" AS NUMBER) AS total_gold,
-    CAST(PARSE_JSON(LOG):"q1_play_num" AS NUMBER) AS q1_play_num,
-    CAST(PARSE_JSON(LOG):"q4_play_num" AS NUMBER) AS q4_play_num,
-    CAST(PARSE_JSON(LOG):"total_score" AS NUMBER) AS total_score,
-    CAST(PARSE_JSON(LOG):"fq1_play_num" AS NUMBER) AS fq1_play_num,
-    CAST(PARSE_JSON(LOG):"fq2_play_num" AS NUMBER) AS fq2_play_num,
-    CAST(PARSE_JSON(LOG):"q2_a_play_num" AS NUMBER) AS q2_a_play_num,
-    CAST(PARSE_JSON(LOG):"q2_b_play_num" AS NUMBER) AS q2_b_play_num,
-    CAST(PARSE_JSON(LOG):"q2_c_play_num" AS NUMBER) AS q2_c_play_num,
-    CAST(PARSE_JSON(LOG):"q3_a_play_num" AS NUMBER) AS q3_a_play_num,
-    CAST(PARSE_JSON(LOG):"q3_b_play_num" AS NUMBER) AS q3_b_play_num,
-    CAST(PARSE_JSON(LOG):"q3_c_play_num" AS NUMBER) AS q3_c_play_num,
-    CAST(PARSE_JSON(LOG):"q3_d_play_num" AS NUMBER) AS q3_d_play_num,
-    CAST(PARSE_JSON(LOG):"q3_e_play_num" AS NUMBER) AS q3_e_play_num,
-    CAST(PARSE_JSON(LOG):"q3_f_play_num" AS NUMBER) AS q3_f_play_num,
-    CAST(PARSE_JSON(LOG):"q3_g_play_num" AS NUMBER) AS q3_g_play_num,
-    CAST(PARSE_JSON(LOG):"q3_h_play_num" AS NUMBER) AS q3_h_play_num,
-    CAST(PARSE_JSON(LOG):"q3_i_play_num" AS NUMBER) AS q3_i_play_num,
-    CAST(PARSE_JSON(LOG):"q5_a_play_num" AS NUMBER) AS q5_a_play_num,
-    CAST(PARSE_JSON(LOG):"q5_b_play_num" AS NUMBER) AS q5_b_play_num,
-    CAST(PARSE_JSON(LOG):"fq1_reached_num" AS NUMBER) AS fq1_reached_num,
-    CAST(PARSE_JSON(LOG):"fq2_reached_num" AS NUMBER) AS fq2_reached_num,
-    CAST(PARSE_JSON(LOG):"q5_a_reached_num" AS NUMBER) AS q5_a_reached_num,
-    CAST(PARSE_JSON(LOG):"q5_b_reached_num" AS NUMBER) AS q5_b_reached_num
-FROM DBLOG
-WHERE LOG_TYPE = 'user:score'
 ;
 
