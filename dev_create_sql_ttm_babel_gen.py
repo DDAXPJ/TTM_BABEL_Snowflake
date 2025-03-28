@@ -185,7 +185,7 @@ def gen_create_queries(group_keys):
                 if key_type != "VARIANT" and key_type in inverse_type_mapping:
                     # key_typeが拡張していないsnowflakeに存在する型の場合castする
                     insert_fields.append(f'{field} {key_type} NULL')
-                    select_fields.append(f'CAST(PARSE_JSON(LOG):"{key}" AS {key_type}) AS {field}')
+                    select_fields.append(f'CAST(PARSE_JSON(LOG):{key} AS {key_type}) AS {field}')
                 elif "ARRAY" in key_type and has_single_array:
                     # 配列が1つのときのみ対応する
                     array_field = get_array_field(key, key_type)
@@ -209,7 +209,7 @@ def gen_create_queries(group_keys):
                 else:
                     # その他の型の場合はそのままVARIANTとする
                     insert_fields.append(f'{field} VARIANT  NULL')
-                    select_fields.append(f'PARSE_JSON(LOG):"{key}" AS {field}')
+                    select_fields.append(f'PARSE_JSON(LOG):{key} AS {field}')
                     select_fields.append(f'-- {key}: {key_type} --')                
 
             table_query = [source_table_name]
