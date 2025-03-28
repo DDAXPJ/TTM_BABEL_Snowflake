@@ -121,10 +121,10 @@ def flatten_update_dict(keys, key, log_value, parent_snowflake_type=''):
         for new_key, new_value in flat_log_value.items():
             flatten_update_dict(keys, new_key, new_value, parent_snowflake_type)
     elif snowflake_type == 'ARRAY<__DICT__>' and len(log_value) > 0:
-        # 辞書の配列の場合、最初の1個目の要素でカラムを決定する
-        flat_log_value = flatten_dict(log_value[0], key)
-        for new_key, new_value in flat_log_value.items():
-            flatten_update_dict(keys, new_key, new_value, f'{parent_snowflake_type}{snowflake_type}.')
+        for v in log_value:
+            flat_log_value = flatten_dict(v, key)
+            for new_key, new_value in flat_log_value.items():
+                flatten_update_dict(keys, new_key, new_value, f'{parent_snowflake_type}{snowflake_type}.')
     else:
         try:
             update_dict(keys, key, f'{parent_snowflake_type}{snowflake_type}')
@@ -193,8 +193,12 @@ def gen_create_queries(group_keys):
                     child_key_type = key_type.split('.')[-1]
                     if "ARRAY" in child_key_type:
                         child_key_type = child_key_type[child_key_type.find('<')+1:child_key_type.find('>')]
-                    insert_fields.append(f'{field} {child_key_type} NULL')
-                    select_fields.append(f'{array_field}.value:"{child_field}"::{child_key_type} AS {field}')
+                    if child_key_type in inverse_type_mapping:
+                        insert_fields.append(f'{field} {child_key_type} NULL')
+                        select_fields.append(f'{array_field}.value:"{child_field}"::{child_key_type} AS {field}')
+                    else:
+                        insert_fields.append(f'{field} VARIANT NULL')
+                        select_fields.append(f'{array_field}.value:"{child_field}" AS {field}')                        
                 elif "ARRAY" in key_type and not has_single_array:
                     array_field = get_array_field(key, key_type)
                     if array_field in multi_array_fields:
@@ -283,7 +287,10 @@ def gen_task_queries(group_keys):
                     child_key_type = key_type.split('.')[-1]
                     if "ARRAY" in child_key_type:
                         child_key_type = child_key_type[child_key_type.find('<')+1:child_key_type.find('>')]
-                    select_fields.append(f'{array_field}.value:"{child_field}"::{child_key_type} AS {field}')
+                    if child_key_type in inverse_type_mapping:
+                        select_fields.append(f'{array_field}.value:"{child_field}"::{child_key_type} AS {field}')
+                    else:
+                        select_fields.append(f'{array_field}.value:"{child_field}" AS {field}')                        
                 elif "ARRAY" in key_type and not has_single_array:
                     array_field = get_array_field(key, key_type)
                     if array_field in multi_array_fields:
@@ -395,46 +402,35 @@ EXECUTE TASK {table_name}_TASK;
 
 group_keys = get_group_keys(df)
 suffix = datetime.now().strftime("%Y%m%d%H%M%S")
+use_schema = """
+{% if env == "PROD" %}
+-- PRODの場合の処理
+USE SCHEMA TTM_BABEL.BABEL_STG_PROD;
+{% else %}
+-- その他の場合の処理
+USE SCHEMA TTM_BABEL.BABEL_STG_DEV;
+{% endif %}
+"""
+
+def split_by_chunks(data, n):
+    k, m = divmod(len(data), n)
+    return [data[i*k + min(i, m):(i+1)*k + min(i+1, m)] for i in range(n)]
 
 # クエリ結果を出力\
 # テーブル作成クエリ
-with open(f'./dev_staging_table.sql', "a") as file:
-    file.write(
-"""
-{% if env == "DEV" %}
--- DEVの場合の処理
-USE SCHEMA TTM_BABEL.BABEL_STG_DEV;
-{% elif env == "PROD" %}
--- PRODの場合の処理
-USE SCHEMA TTM_BABEL.BABEL_STG_PROD;
-{% else %}
--- その他の場合の処理
-USE SCHEMA TTM_BABEL.BABEL_STG_DEV;
-{% endif %}
-"""
-    )
-    queries = gen_create_queries(group_keys)
-    for LOG_TYPE, query in queries:
-        # print(f"-- Query for LOG_TYPE = {LOG_TYPE}\n{query}\n")
-        file.write(f"-- Query for LOG_TYPE = {LOG_TYPE}\n{query}\n")
+split_queries = split_by_chunks(gen_create_queries(group_keys), 1)
+for i, queries in enumerate(split_queries):
+    with open(f'./dev_staging_table{i+1}.sql', "w") as file:
+        file.write(use_schema)
+        for LOG_TYPE, query in queries:
+            # print(f"-- Query for LOG_TYPE = {LOG_TYPE}\n{query}\n")
+            file.write(f"-- Query for LOG_TYPE = {LOG_TYPE}\n{query}\n")
 
 # タスククエリ
-with open(f'./dev_task.sql', "a") as file:
-    file.write(
-"""
-{% if env == "DEV" %}
--- DEVの場合の処理
-USE SCHEMA TTM_BABEL.BABEL_STG_DEV;
-{% elif env == "PROD" %}
--- PRODの場合の処理
-USE SCHEMA TTM_BABEL.BABEL_STG_PROD;
-{% else %}
--- その他の場合の処理
-USE SCHEMA TTM_BABEL.BABEL_STG_DEV;
-{% endif %}
-"""
-    )
-    queries = gen_task_queries(group_keys)
-    for LOG_TYPE, query in queries:
-        # print(f"-- Query for LOG_TYPE = {LOG_TYPE}\n{query}\n")
-        file.write(f"-- Query for LOG_TYPE = {LOG_TYPE}\n{query}\n")
+split_queries = split_by_chunks(gen_task_queries(group_keys), 2)
+for i, queries in enumerate(split_queries):
+    with open(f'./dev_task{i+1}.sql', "w") as file:
+        file.write(use_schema)
+        for LOG_TYPE, query in queries:
+            # print(f"-- Query for LOG_TYPE = {LOG_TYPE}\n{query}\n")
+            file.write(f"-- Query for LOG_TYPE = {LOG_TYPE}\n{query}\n")
