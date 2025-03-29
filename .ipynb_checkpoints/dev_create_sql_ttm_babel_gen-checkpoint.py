@@ -99,6 +99,8 @@ def update_dict(d, key, new_snowflake_type):
     if "__EMPTY__" not in d[key] and "__EMPTY__" not in new_snowflake_type:
          ValueError(f"無効な値です: key={key}, before={d[key]} after={new_snowflake_type}")
 
+# { a: "a", b: { c: 1, d: "d", e: { f: "f", g: [{ h: "h"}] } } }
+# → { a: "a", "b.c": 1, "b.d": "d", "b.e.f": "f", "b.e.g": [{ h: "h"}] }
 def flatten_dict(d, parent_key='', sep='.'):
     """辞書を再帰的にフラット化し、'親キー.子キー' の形式の辞書を返す。"""
     items = {}
@@ -201,11 +203,12 @@ def gen_create_queries(group_keys):
                         select_fields.append(f'{array_field}.value:{child_field} AS {field}')                        
                 elif "ARRAY" in key_type and not has_single_array:
                     array_field = get_array_field(key, key_type)
+                    array_key = get_array_field(key, key_type, '.')
                     if array_field in multi_array_fields:
                         continue
                     multi_array_fields[array_field] = array_field
                     insert_fields.append(f'{array_field} VARIANT NULL')
-                    select_fields.append(f'PARSE_JSON(LOG):{array_field} AS {array_field}')
+                    select_fields.append(f'PARSE_JSON(LOG):{array_key} AS {array_field}')
                 else:
                     # その他の型の場合はそのままVARIANTとする
                     insert_fields.append(f'{field} VARIANT  NULL')
@@ -293,10 +296,11 @@ def gen_task_queries(group_keys):
                         select_fields.append(f'{array_field}.value:{child_field} AS {field}')                        
                 elif "ARRAY" in key_type and not has_single_array:
                     array_field = get_array_field(key, key_type)
+                    array_key = get_array_field(key, key_type, '.')
                     if array_field in multi_array_fields:
                         continue
                     multi_array_fields[array_field] = array_field
-                    select_fields.append(f'PARSE_JSON(LOG):{array_field} AS {array_field}')
+                    select_fields.append(f'PARSE_JSON(LOG):{array_key} AS {array_field}')
                 else:
                     # その他の型の場合はそのまま
                     select_fields.append(f'PARSE_JSON(LOG):{key} AS {field}')
