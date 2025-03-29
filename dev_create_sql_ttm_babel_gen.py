@@ -3,238 +3,222 @@ import json
 import argparse
 import sys
 from collections import defaultdict
-from datetime import datetime
-
-# コマンドライン引数の設定
-parser = argparse.ArgumentParser(description="Generate Snowflake SELECT queries from CSV LOG data.")
-parser.add_argument("csv_file", help="Path to the CSV file containing LOG data.")
-args = parser.parse_args()
-
-# CSVデータを読み込み
-df = pd.read_csv(args.csv_file)
-table_name_df = pd.read_csv("./source_data/babel_table_name.csv")
-
-# IDをキーにした辞書を作成します
-# ここでは、IDごとに他のカラムの情報を辞書にまとめています
-data_map = table_name_df.set_index('LOG_TYPE').to_dict(orient='index')
-# デフォルトの変数名
-default_label = "default_table"
-integration = "dblog_dev_int"
-source_table_name = "DBLOG"
-task_schedule = '24 HOUR'
-
 from datetime import datetime, date
 
 
-# Pythonの型からSnowflakeの型へのマッピング辞書
-type_mapping = {
-    str: "STRING",
-    int: "NUMBER",
-    float: "FLOAT",
-    bool: "BOOLEAN",
-    dict: "VARIANT",      # ディクショナリーはVARIANTとする
-    date: "DATE",         # Pythonのdate型に対応
-    datetime: "TIMESTAMP" # Pythonのdatetime型に対応
-}
-# 逆引きマップ
-inverse_type_mapping = {value: key for key, value in type_mapping.items()}
+class SnowflakeSQLGenerator:
+    def __init__(self, log_csv_path, table_csv_path="./source_data/babel_table_name.csv",
+                 integration="dblog_dev_int", source_table_name="DBLOG", task_schedule="24 HOUR"):
+        self.df = pd.read_csv(log_csv_path)
+        self.table_name_df = pd.read_csv(table_csv_path)
+        self.integration = integration
+        self.source_table_name = source_table_name
+        self.task_schedule = task_schedule
 
-# 文字列が日付や日時の形式かどうかを判定する関数
-def detect_date_type(value):
-    try:
-        # ISO形式の日付として解析可能ならDATE型
-        date.fromisoformat(value)
-        return "DATE"
-    except ValueError:
-        pass
-    try:
-        # ISO形式の日時として解析可能ならTIMESTAMP型
-        datetime.fromisoformat(value)
-        return "TIMESTAMP"
-    except ValueError:
-        pass
-    return "STRING"  # どちらでもなければSTRINGと判断
+        # Build mapping from LOG_TYPE to additional table info
+        self.data_map = self.table_name_df.set_index('LOG_TYPE').to_dict(orient='index')
 
-# Pythonの型からSnowflakeの型を取得する関数
-def get_snowflake_type(value):
-    if value is None:
-        return "__EMPTY__"
-    # リストの場合、中の型も考慮してARRAY<型>形式にする
-    if isinstance(value, list):
-        # 空のリストの場合はARRAY<__EMPTY__>とする
-        if not value:
-            return "ARRAY<__EMPTY__>"
-        # 最初の要素の型でARRAYの要素型を決定
-        element_type = get_snowflake_type(value[0])
-        return f"ARRAY<{element_type}>"
-    
-    # 辞書の場合はVARIANTとして扱う
-    # inverse_type_mappingに存在しないタイプはVARIANTとして扱うため、元のタイプが推測できるよう__DICT__を設定する
-    elif isinstance(value, dict):
-        return "__DICT__"
-    
-    # 文字列の場合、日付や日時の形式かを判定
-    elif isinstance(value, str):
-        return detect_date_type(value)
-    
-    # その他の型はマッピング辞書で取得
-    else:
-        return type_mapping.get(type(value), "__Unknown__")
+        # Define type mapping for Snowflake
+        self.type_mapping = {
+            str: "STRING",
+            int: "NUMBER",
+            float: "FLOAT",
+            bool: "BOOLEAN",
+            dict: "VARIANT",   # dictionaries are treated as VARIANT
+            date: "DATE",
+            datetime: "TIMESTAMP"
+        }
+        self.inverse_type_mapping = {value: key for key, value in self.type_mapping.items()}
 
-def update_dict(d, key, new_snowflake_type):
-    """
-    log_dict[key] の型情報を new_snowflake_type と照合し、必要なら更新する。
-    更新前後の型情報が異なる場合は、標準エラー出力にログ出力する。
-    """
-    if key not in d:
-        d[key] = new_snowflake_type
-        return
-    if d[key] == new_snowflake_type:
-        return
-    if d[key] == "__EMPTY__":
-        d[key] = new_snowflake_type
-    elif d[key] == "ARRAY<__EMPTY__>" and new_snowflake_type.endswith("__EMPTY__"):
-        d[key] = new_snowflake_type
+    # --- Type Detection and Conversion Utilities ---
 
-    if "__EMPTY__" not in d[key] and "__EMPTY__" not in new_snowflake_type:
-         ValueError(f"無効な値です: key={key}, before={d[key]} after={new_snowflake_type}")
+    def detect_date_type(self, value):
+        """Return DATE/TIMESTAMP if value is in ISO format, else STRING."""
+        try:
+            date.fromisoformat(value)
+            return "DATE"
+        except ValueError:
+            pass
+        try:
+            datetime.fromisoformat(value)
+            return "TIMESTAMP"
+        except ValueError:
+            pass
+        return "STRING"
 
-# { a: "a", b: { c: 1, d: "d", e: { f: "f", g: [{ h: "h"}] } } }
-# → { a: "a", "b.c": 1, "b.d": "d", "b.e.f": "f", "b.e.g": [{ h: "h"}] }
-def flatten_dict(d, parent_key='', sep='.'):
-    """辞書を再帰的にフラット化し、'親キー.子キー' の形式の辞書を返す。"""
-    items = {}
-    for k, v in d.items():
-        new_key = f"{parent_key}{sep}{k}" if parent_key else k
-        if isinstance(v, dict):
-            items.update(flatten_dict(v, new_key, sep=sep))
-        # elif isinstance(v, list) and len(v) > 0 and isinstance(v[0], dict):
-        #     # 辞書の配列の場合、最初の1個目の要素でカラムを決定する
-        #     items.update(flatten_dict(v[0], new_key, sep=sep))
+    def get_snowflake_type(self, value):
+        """Determine the Snowflake type for a given Python value."""
+        if value is None:
+            return "__EMPTY__"
+        if isinstance(value, list):
+            if not value:
+                return "ARRAY<__EMPTY__>"
+            element_type = self.get_snowflake_type(value[0])
+            return f"ARRAY<{element_type}>"
+        elif isinstance(value, dict):
+            return "__DICT__"
+        elif isinstance(value, str):
+            return self.detect_date_type(value)
         else:
-            items[new_key] = v
-    return items
+            return self.type_mapping.get(type(value), "__Unknown__")
 
-def flatten_update_dict(keys, key, log_value, parent_snowflake_type=''):
-    snowflake_type = get_snowflake_type(log_value)
-    # snowflake_typeが辞書の場合は再帰的にフラット化して各キーに対して既存ロジックを適用する
-    if snowflake_type == '__DICT__':
-        flat_log_value = flatten_dict(log_value, key)
-        for new_key, new_value in flat_log_value.items():
-            flatten_update_dict(keys, new_key, new_value, parent_snowflake_type)
-    elif snowflake_type == 'ARRAY<__DICT__>' and len(log_value) > 0:
-        for v in log_value:
-            flat_log_value = flatten_dict(v, key)
+    def update_dict(self, d, key, new_snowflake_type):
+        """
+        Update the dictionary for key with new_snowflake_type.
+        If existing type is __EMPTY__ it is replaced;
+        otherwise, a conflict (without __EMPTY__) raises an error.
+        """
+        if key not in d:
+            d[key] = new_snowflake_type
+            return
+        if d[key] == new_snowflake_type:
+            return
+        if d[key] == "__EMPTY__":
+            d[key] = new_snowflake_type
+        elif d[key] == "ARRAY<__EMPTY__>" and new_snowflake_type.endswith("__EMPTY__"):
+            d[key] = new_snowflake_type
+        else:
+            if "__EMPTY__" not in d[key] and "__EMPTY__" not in new_snowflake_type:
+                raise ValueError(f"Invalid type update: key={key}, before={d[key]}, after={new_snowflake_type}")
+
+    def flatten_dict(self, d, parent_key='', sep='.'):
+        """
+        Recursively flattens a nested dictionary into a single-level dictionary
+        with keys in 'parent.child' format.
+        """
+        items = {}
+        for k, v in d.items():
+            new_key = f"{parent_key}{sep}{k}" if parent_key else k
+            if isinstance(v, dict):
+                items.update(self.flatten_dict(v, new_key, sep=sep))
+            else:
+                items[new_key] = v
+        return items
+
+    def flatten_update_dict(self, keys, key, log_value, parent_snowflake_type=''):
+        """
+        Update keys with flattened values.
+        If log_value is a dictionary, it is flattened and processed recursively.
+        """
+        snowflake_type = self.get_snowflake_type(log_value)
+        if snowflake_type == '__DICT__':
+            flat_log_value = self.flatten_dict(log_value, key)
             for new_key, new_value in flat_log_value.items():
-                flatten_update_dict(keys, new_key, new_value, f'{parent_snowflake_type}{snowflake_type}.')
-    else:
-        try:
-            update_dict(keys, key, f'{parent_snowflake_type}{snowflake_type}')
-        except Exception as e:
-            print(f"flatten_update_dict error: {e}", file=sys.stderr)
+                self.flatten_update_dict(keys, new_key, new_value, parent_snowflake_type)
+        elif snowflake_type == 'ARRAY<__DICT__>' and len(log_value) > 0:
+            for v in log_value:
+                flat_log_value = self.flatten_dict(v, key)
+                for new_key, new_value in flat_log_value.items():
+                    self.flatten_update_dict(keys, new_key, new_value,
+                                             f'{parent_snowflake_type}{snowflake_type}.')
+        else:
+            try:
+                self.update_dict(keys, key, f'{parent_snowflake_type}{snowflake_type}')
+            except Exception as e:
+                print(f"flatten_update_dict error: {e}", file=sys.stderr)
 
-def get_group_keys(df):
-    # `LOG_TYPE`ごとにログのJSONキーを集計
-    group_keys = defaultdict(dict)
-    for _, row in df.iterrows():
-        if not pd.notna(row['LOG_TYPE']):
-            continue
-        LOG_TYPE = row['LOG_TYPE']
-        LOG_data = json.loads(row['LOG'])
-        # エスケープされている場合もう一度パースする
-        if isinstance(LOG_data, str):
-            LOG_data = json.loads(LOG_data)
+    def get_group_keys(self):
+        """
+        Build a dictionary of keys (and their types) for each LOG_TYPE found in the CSV log data.
+        """
+        group_keys = defaultdict(dict)
+        for _, row in self.df.iterrows():
+            if not pd.notna(row['LOG_TYPE']):
+                continue
+            log_type = row['LOG_TYPE']
+            log_data = json.loads(row['LOG'])
+            # In case the JSON is double-encoded
+            if isinstance(log_data, str):
+                log_data = json.loads(log_data)
 
-        keys = group_keys[LOG_TYPE]
-        for key in LOG_data.keys():
-            log_value = LOG_data.get(key, None)
-            flatten_update_dict(keys, key, log_value)
+            keys = group_keys[log_type]
+            for key in log_data.keys():
+                log_value = log_data.get(key, None)
+                self.flatten_update_dict(keys, key, log_value)
+            group_keys[log_type] = keys
+        return group_keys
 
-        group_keys[LOG_TYPE] = keys
-    return group_keys
+    def get_array_field(self, key, key_type, sep='_'):
+        """
+        Return the appropriate array field name based on key structure and key_type.
+        """
+        keys = key.split('.')
+        if len(keys) > 1:
+            child_key_type = key_type.split('.')[-1]
+            if child_key_type.startswith("ARRAY"):
+                return sep.join(keys)
+            return sep.join(keys[:-1])
+        return key
 
-def get_array_field(key, key_type, sep='_'):
-    keys = key.split('.')
-    if len(keys) > 1:
-        child_key_type = key_type.split('.')[-1]      
-        if child_key_type.startswith("ARRAY"):
-            return sep.join(keys)
-        return sep.join(keys[0:-1])
-    return key
+    # --- Query Generation Methods ---
 
-def gen_create_queries(group_keys):
-    # `LOG_TYPE`ごとのSELECTクエリを生成
-    queries = []
+    def gen_create_queries(self, group_keys):
+        """
+        Generate CREATE TABLE queries for each LOG_TYPE.
+        """
+        queries = []
+        for log_type in sorted(group_keys.keys()):
+            try:
+                table_name = self.data_map[log_type]['TABLE_NAME']
+                keys = group_keys[log_type]
 
-    for LOG_TYPE in sorted(group_keys.keys()):
-        try:
-            table_name = data_map[LOG_TYPE]['TABLE_NAME']
-            keys = group_keys[LOG_TYPE]
+                # Identify array fields
+                array_keys = defaultdict(dict)
+                for key, key_type in keys.items():
+                    if "ARRAY" in key_type:
+                        array_field_accessor = self.get_array_field(key, key_type, '.')
+                        array_keys[array_field_accessor] = key_type
+                has_single_array = len(array_keys) == 1
+                multi_array_fields = defaultdict(dict)
 
-            array_keys = defaultdict(dict)
-            for key, key_type in keys.items():
-                if "ARRAY" in key_type:
-                    array_field_accessor = get_array_field(key, key_type, '.')
-                    array_keys[array_field_accessor] = key_type
-            has_single_array = len(array_keys) == 1
-            multi_array_fields = defaultdict(dict)
-
-            insert_fields = []
-            select_fields = []
-            for key, key_type in keys.items():
-                field = key.replace(".", "_")
-                # insert_fields, select_fieldsのセット
-                if key_type != "VARIANT" and key_type in inverse_type_mapping:
-                    # key_typeが拡張していないsnowflakeに存在する型の場合castする
-                    insert_fields.append(f'{field} {key_type} NULL')
-                    select_fields.append(f'CAST(PARSE_JSON(LOG):{key} AS {key_type}) AS {field}')
-                elif "ARRAY" in key_type and has_single_array:
-                    # 配列が1つのときのみ対応する
-                    array_field = get_array_field(key, key_type)
-                    child_field = key.split('.')[-1]
-                    child_key_type = key_type.split('.')[-1]
-                    if "ARRAY" in child_key_type:
-                        child_key_type = child_key_type[child_key_type.find('<')+1:child_key_type.find('>')]
-                    if child_key_type in inverse_type_mapping:
-                        insert_fields.append(f'{field} {child_key_type} NULL')
-                        select_fields.append(f'{array_field}.value:{child_field}::{child_key_type} AS {field}')
+                insert_fields = []
+                select_fields = []
+                for key, key_type in keys.items():
+                    field = key.replace(".", "_")
+                    if key_type != "VARIANT" and key_type in self.inverse_type_mapping:
+                        insert_fields.append(f'{field} {key_type} NULL')
+                        select_fields.append(f'CAST(PARSE_JSON(LOG):{key} AS {key_type}) AS {field}')
+                    elif "ARRAY" in key_type and has_single_array:
+                        array_field = self.get_array_field(key, key_type)
+                        child_field = key.split('.')[-1]
+                        child_key_type = key_type.split('.')[-1]
+                        if "ARRAY" in child_key_type:
+                            child_key_type = child_key_type[child_key_type.find("<") + 1:child_key_type.find(">")]
+                        if child_key_type in self.inverse_type_mapping:
+                            insert_fields.append(f'{field} {child_key_type} NULL')
+                            select_fields.append(f'{array_field}.value:{child_field}::{child_key_type} AS {field}')
+                        else:
+                            insert_fields.append(f'{field} VARIANT NULL')
+                            select_fields.append(f'{array_field}.value:{child_field} AS {field}')
+                    elif "ARRAY" in key_type and not has_single_array:
+                        array_field = self.get_array_field(key, key_type)
+                        array_key = self.get_array_field(key, key_type, '.')
+                        if array_field in multi_array_fields:
+                            continue
+                        multi_array_fields[array_field] = array_field
+                        insert_fields.append(f'{array_field} VARIANT NULL')
+                        select_fields.append(f'PARSE_JSON(LOG):{array_key} AS {array_field}')
                     else:
                         insert_fields.append(f'{field} VARIANT NULL')
-                        select_fields.append(f'{array_field}.value:{child_field} AS {field}')                        
-                elif "ARRAY" in key_type and not has_single_array:
-                    array_field = get_array_field(key, key_type)
-                    array_key = get_array_field(key, key_type, '.')
-                    if array_field in multi_array_fields:
-                        continue
-                    multi_array_fields[array_field] = array_field
-                    insert_fields.append(f'{array_field} VARIANT NULL')
-                    select_fields.append(f'PARSE_JSON(LOG):{array_key} AS {array_field}')
-                else:
-                    # その他の型の場合はそのままVARIANTとする
-                    insert_fields.append(f'{field} VARIANT NULL')
-                    select_fields.append(f'PARSE_JSON(LOG):{key} AS {field}')
-                    select_fields.append(f'-- {key}: {key_type} --')                
+                        select_fields.append(f'PARSE_JSON(LOG):{key} AS {field}')
+                        select_fields.append(f'-- {key}: {key_type} --')
 
-            table_query = [source_table_name]
-            # 配列用に特殊処理
-            array_create_index_str = ""
-            array_select_index_str = ""
-            # 配列が1つのときのみ対応する
-            if has_single_array:
-                for array_key, array_key_type in array_keys.items():
-                    array_field = '_'.join(array_key.split('.'))
-                    array_field_accessor = array_key
-                    if array_select_index_str == "":
-                        array_create_index_str = "idx INT NOT NULL,"
-                        array_select_index_str = f'{array_field}.index AS idx,'
-                    table_query.append(f'LATERAL FLATTEN(input => PARSE_JSON(LOG):"{array_field_accessor}") {array_field}')
+                table_query = [self.source_table_name]
+                array_create_index_str = ""
+                array_select_index_str = ""
+                if has_single_array:
+                    for array_key, _ in array_keys.items():
+                        array_field = '_'.join(array_key.split('.'))
+                        if not array_select_index_str:
+                            array_create_index_str = "idx INT NOT NULL,"
+                            array_select_index_str = f'{array_field}.index AS idx,'
+                        table_query.append(f'LATERAL FLATTEN(input => PARSE_JSON(LOG):"{array_key}") {array_field}')
 
-            # 各種fieldsを改行区切りで結合
-            insert_fields_str = ",\n    ".join(insert_fields)
-            select_fields_str = ",\n    ".join(select_fields)
-            table_query_str = ",\n    ".join(table_query)
+                insert_fields_str = ",\n    ".join(insert_fields)
+                select_fields_str = ",\n    ".join(select_fields)
+                table_query_str = ",\n    ".join(table_query)
 
-            query = f"""
+                query = f"""
 CREATE OR REPLACE TABLE {table_name}(
     id INT NOT NULL,
     {array_create_index_str}
@@ -251,110 +235,103 @@ SELECT DISTINCT
     user_id as LOGs_userId,
     {select_fields_str}
 FROM {table_query_str}
-WHERE LOG_TYPE = '{LOG_TYPE}'
+WHERE LOG_TYPE = '{log_type}'
 ;
 """
-            queries.append((LOG_TYPE, query))
-        except KeyError:
-            # LOG_TYPEが見つからない場合はスキップ
-            continue
-    return queries
+                queries.append((log_type, query))
+            except KeyError:
+                # Skip if LOG_TYPE mapping is missing
+                continue
+        return queries
 
-def gen_task_queries(group_keys):
-    # `LOG_TYPE`ごとのSELECTクエリを生成
-    queries = []
-    for LOG_TYPE in sorted(group_keys.keys()):
-        try:
-            table_name = data_map[LOG_TYPE]['TABLE_NAME']
-            keys = group_keys[LOG_TYPE]
+    def gen_task_queries(self, group_keys):
+        """
+        Generate TASK queries (with MERGE statements) for each LOG_TYPE.
+        """
+        queries = []
+        for log_type in sorted(group_keys.keys()):
+            try:
+                table_name = self.data_map[log_type]['TABLE_NAME']
+                keys = group_keys[log_type]
 
-            array_keys = defaultdict(dict)
-            for key, key_type in keys.items():
-                if "ARRAY" in key_type:
-                    array_field_accessor = get_array_field(key, key_type, '.')
-                    array_keys[array_field_accessor] = key_type
-            has_single_array = len(array_keys) == 1
-            multi_array_fields = defaultdict(dict)
-
-            select_fields = []
-            for key, key_type in keys.items():
-                field = key.replace(".", "_")
-                # insert_fields, select_fieldsのセット
-                if key_type != "VARIANT" and key_type in inverse_type_mapping:
-                    # key_typeが拡張していないsnowflakeに存在する型の場合castする
-                    select_fields.append(f'CAST(PARSE_JSON(LOG):{key} AS {key_type}) AS {field}')
-                elif "ARRAY" in key_type and has_single_array:
-                    # 配列が1つのときのみ対応する
-                    array_field = get_array_field(key, key_type)
-                    child_field = key.split('.')[-1]
-                    child_key_type = key_type.split('.')[-1]
-                    if "ARRAY" in child_key_type:
-                        child_key_type = child_key_type[child_key_type.find('<')+1:child_key_type.find('>')]
-                    if child_key_type in inverse_type_mapping:
-                        select_fields.append(f'{array_field}.value:{child_field}::{child_key_type} AS {field}')
+                array_keys = defaultdict(dict)
+                for key, key_type in keys.items():
+                    if "ARRAY" in key_type:
+                        array_field_accessor = self.get_array_field(key, key_type, '.')
+                        array_keys[array_field_accessor] = key_type
+                has_single_array = len(array_keys) == 1
+                multi_array_fields = defaultdict(dict)
+                select_fields = []
+                for key, key_type in keys.items():
+                    field = key.replace(".", "_")
+                    if key_type != "VARIANT" and key_type in self.inverse_type_mapping:
+                        select_fields.append(f'CAST(PARSE_JSON(LOG):{key} AS {key_type}) AS {field}')
+                    elif "ARRAY" in key_type and has_single_array:
+                        array_field = self.get_array_field(key, key_type)
+                        child_field = key.split('.')[-1]
+                        child_key_type = key_type.split('.')[-1]
+                        if "ARRAY" in child_key_type:
+                            child_key_type = child_key_type[child_key_type.find("<") + 1:child_key_type.find(">")]
+                        if child_key_type in self.inverse_type_mapping:
+                            select_fields.append(f'{array_field}.value:{child_field}::{child_key_type} AS {field}')
+                        else:
+                            select_fields.append(f'{array_field}.value:{child_field} AS {field}')
+                    elif "ARRAY" in key_type and not has_single_array:
+                        array_field = self.get_array_field(key, key_type)
+                        array_key = self.get_array_field(key, key_type, '.')
+                        if array_field in multi_array_fields:
+                            continue
+                        multi_array_fields[array_field] = array_field
+                        select_fields.append(f'PARSE_JSON(LOG):{array_key} AS {array_field}')
                     else:
-                        select_fields.append(f'{array_field}.value:{child_field} AS {field}')                        
-                elif "ARRAY" in key_type and not has_single_array:
-                    array_field = get_array_field(key, key_type)
-                    array_key = get_array_field(key, key_type, '.')
-                    if array_field in multi_array_fields:
-                        continue
-                    multi_array_fields[array_field] = array_field
-                    select_fields.append(f'PARSE_JSON(LOG):{array_key} AS {array_field}')
-                else:
-                    # その他の型の場合はそのまま
-                    select_fields.append(f'PARSE_JSON(LOG):{key} AS {field}')
-                    select_fields.append(f'-- {key}: {key_type} --')
+                        select_fields.append(f'PARSE_JSON(LOG):{key} AS {field}')
+                        select_fields.append(f'-- {key}: {key_type} --')
 
-            stream_name = table_name + '_STERAM'
-            table_query = [stream_name]
-            # 配列用に特殊処理
-            array_select_index_str = ""
-            array_join_idx_str = ""
-            array_insert_idx1_str = ""
-            array_insert_idx2_str = ""
-            # 配列が1つのときのみ対応する
-            if has_single_array:
-                array_join_idx_str = "AND tgt.idx = src.idx"
-                array_insert_idx1_str = "idx,"
-                array_insert_idx2_str = "src.idx,"
-                for array_key, array_key_type in array_keys.items():
-                    array_field = '_'.join(array_key.split('.'))
-                    array_field_accessor = array_key
-                    if array_select_index_str == "":
-                        array_select_index_str = f'{array_field}.index AS idx,'
-                    table_query.append(f'LATERAL FLATTEN(input => PARSE_JSON(LOG):"{array_field_accessor}") {array_field}')
+                stream_name = table_name + '_STERAM'
+                table_query = [stream_name]
+                array_select_index_str = ""
+                array_join_idx_str = ""
+                array_insert_idx1_str = ""
+                array_insert_idx2_str = ""
+                if has_single_array:
+                    array_join_idx_str = "AND tgt.idx = src.idx"
+                    array_insert_idx1_str = "idx,"
+                    array_insert_idx2_str = "src.idx,"
+                    for array_key, _ in array_keys.items():
+                        array_field = '_'.join(array_key.split('.'))
+                        if not array_select_index_str:
+                            array_select_index_str = f'{array_field}.index AS idx,'
+                        table_query.append(f'LATERAL FLATTEN(input => PARSE_JSON(LOG):"{array_key}") {array_field}')
 
-            update_fields = []
-            insert_fields1 = []
-            insert_fields2 = []
-            multi_array_fields = defaultdict(dict)
-            for key, key_type in keys.items():
-                field = key.replace(".", "_")
-                if "ARRAY" in key_type and not has_single_array:
-                    array_field = get_array_field(key, key_type)
-                    if array_field in multi_array_fields:
-                        continue
-                    multi_array_fields[array_field] = array_field
-                    field = array_field
-                update_fields.append(f'tgt.{field} = src.{field}')
-                insert_fields1.append(f'{field}')
-                insert_fields2.append(f'src.{field}')
+                update_fields = []
+                insert_fields1 = []
+                insert_fields2 = []
+                multi_array_fields = defaultdict(dict)
+                for key, key_type in keys.items():
+                    field = key.replace(".", "_")
+                    if "ARRAY" in key_type and not has_single_array:
+                        array_field = self.get_array_field(key, key_type)
+                        if array_field in multi_array_fields:
+                            continue
+                        multi_array_fields[array_field] = array_field
+                        field = array_field
+                    update_fields.append(f'tgt.{field} = src.{field}')
+                    insert_fields1.append(f'{field}')
+                    insert_fields2.append(f'src.{field}')
 
-            # 各種fieldsを改行区切りで結合
-            select_fields_str = ",\n        ".join(select_fields)
-            update_fields_str = ",\n    ".join(update_fields)
-            insert_fields1_str = ",\n    ".join(insert_fields1)
-            insert_fields2_str = ",\n    ".join(insert_fields2)
-            table_query_str = ",\n        ".join(table_query)
+                select_fields_str = ",\n        ".join(select_fields)
+                update_fields_str = ",\n    ".join(update_fields)
+                insert_fields1_str = ",\n    ".join(insert_fields1)
+                insert_fields2_str = ",\n    ".join(insert_fields2)
+                table_query_str = ",\n        ".join(table_query)
 
-            query = f"""
+                query = f"""
 CREATE OR REPLACE STREAM {stream_name} on TABLE DBLOG;
 
 CREATE OR REPLACE TASK {table_name}_TASK
 WAREHOUSE = TTM_BABEL_XS
-ERROR_INTEGRATION = {integration}
-SCHEDULE = '{task_schedule}'
+ERROR_INTEGRATION = {self.integration}
+SCHEDULE = '{self.task_schedule}'
 AS 
 MERGE INTO {table_name} AS tgt
 USING (
@@ -367,7 +344,7 @@ USING (
         {select_fields_str},
         metadata$action
     FROM {table_query_str}
-    WHERE LOG_TYPE = '{LOG_TYPE}'
+    WHERE LOG_TYPE = '{log_type}'
 ) src
 ON tgt.id = src.id
    {array_join_idx_str}
@@ -398,15 +375,30 @@ ALTER TASK {table_name}_TASK RESUME;
 --Task実行
 EXECUTE TASK {table_name}_TASK;
 """
-            queries.append((LOG_TYPE, query))
-        except KeyError:
-            # LOG_TYPEが見つからない場合はスキップ
-            continue
-    return queries
+                queries.append((log_type, query))
+            except KeyError:
+                continue
+        return queries
 
-group_keys = get_group_keys(df)
-suffix = datetime.now().strftime("%Y%m%d%H%M%S")
-use_schema = """
+    # --- File Writing Helper ---
+
+    def write_queries_to_file(self, queries, file_prefix, chunk_count, schema_template):
+        def split_by_chunks(data, n):
+            k, m = divmod(len(data), n)
+            return [data[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n)]
+        split_queries = split_by_chunks(queries, chunk_count)
+        for i, queries_chunk in enumerate(split_queries):
+            filename = f'./{file_prefix}{i + 1}.sql'
+            with open(filename, "w") as file:
+                file.write(schema_template)
+                for log_type, query in queries_chunk:
+                    file.write(f"-- Query for LOG_TYPE = {log_type}\n{query}\n")
+
+    # --- Main Generation Method ---
+
+    def generate(self):
+        group_keys = self.get_group_keys()
+        schema_template = """
 {% if env == "PROD" %}
 -- PRODの場合の処理
 USE SCHEMA TTM_BABEL.BABEL_STG_PROD;
@@ -415,26 +407,25 @@ USE SCHEMA TTM_BABEL.BABEL_STG_PROD;
 USE SCHEMA TTM_BABEL.BABEL_STG_DEV;
 {% endif %}
 """
+        create_queries = self.gen_create_queries(group_keys)
+        task_queries = self.gen_task_queries(group_keys)
+        self.write_queries_to_file(create_queries, 'dev_staging_table', 1, schema_template)
+        self.write_queries_to_file(task_queries, 'dev_task', 2, schema_template)
 
-def split_by_chunks(data, n):
-    k, m = divmod(len(data), n)
-    return [data[i*k + min(i, m):(i+1)*k + min(i+1, m)] for i in range(n)]
 
-# クエリ結果を出力\
-# テーブル作成クエリ
-split_queries = split_by_chunks(gen_create_queries(group_keys), 1)
-for i, queries in enumerate(split_queries):
-    with open(f'./dev_staging_table{i+1}.sql', "w") as file:
-        file.write(use_schema)
-        for LOG_TYPE, query in queries:
-            # print(f"-- Query for LOG_TYPE = {LOG_TYPE}\n{query}\n")
-            file.write(f"-- Query for LOG_TYPE = {LOG_TYPE}\n{query}\n")
+def parse_args():
+    parser = argparse.ArgumentParser(description="Generate Snowflake SELECT queries from CSV LOG data.")
+    parser.add_argument("csv_file", help="Path to the CSV file containing LOG data.")
+    parser.add_argument("--table_csv", default="./source_data/babel_table_name.csv",
+                        help="Path to the CSV file containing table mapping data.")
+    return parser.parse_args()
 
-# タスククエリ
-split_queries = split_by_chunks(gen_task_queries(group_keys), 2)
-for i, queries in enumerate(split_queries):
-    with open(f'./dev_task{i+1}.sql', "w") as file:
-        file.write(use_schema)
-        for LOG_TYPE, query in queries:
-            # print(f"-- Query for LOG_TYPE = {LOG_TYPE}\n{query}\n")
-            file.write(f"-- Query for LOG_TYPE = {LOG_TYPE}\n{query}\n")
+
+def main():
+    args = parse_args()
+    generator = SnowflakeSQLGenerator(args.csv_file, args.table_csv)
+    generator.generate()
+
+
+if __name__ == "__main__":
+    main()
