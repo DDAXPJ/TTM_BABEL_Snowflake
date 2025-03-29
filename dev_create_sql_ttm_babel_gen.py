@@ -211,7 +211,7 @@ def gen_create_queries(group_keys):
                     select_fields.append(f'PARSE_JSON(LOG):{array_key} AS {array_field}')
                 else:
                     # その他の型の場合はそのままVARIANTとする
-                    insert_fields.append(f'{field} VARIANT  NULL')
+                    insert_fields.append(f'{field} VARIANT NULL')
                     select_fields.append(f'PARSE_JSON(LOG):{key} AS {field}')
                     select_fields.append(f'-- {key}: {key_type} --')                
 
